@@ -430,6 +430,8 @@ export const en = {
     emptySub: 'Try changing the search or filters',
     clear: 'Clear selection',
     pickOnMap: 'Pick on map',
+    mapPriceFrom: 'from {price} UZS',
+    mapOpen: 'View',
     pickTitle: 'Choose your location',
     pickHint: 'Tap the map to mark where you are',
     pickConfirm: 'Confirm',

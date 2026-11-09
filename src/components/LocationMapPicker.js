@@ -14,6 +14,7 @@ import { WebView } from 'react-native-webview';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { COLORS } from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 import { YANDEX_MAPS_API_KEY, YANDEX_GEOCODER_API_KEY } from '../constants/config';
 import { devLog } from '../utils/log';
 import { forwardGeocode, normalizeApostrophes } from '../utils/addressSearch';
@@ -129,6 +130,12 @@ const buildMapHtml = (initLat, initLng) => `
     panTo(lat, lng, zoom);
   }
 
+  // Ilova mavzusi o'zgarganda xarita ham almashadi (xarita yaratilmagan bo'lsa, yaratilganda window.__DARK o'qiladi).
+  function setTheme(dark) {
+    window.__DARK = !!dark;
+    if (myMap) myMap.update({ theme: dark ? 'dark' : 'light' });
+  }
+
   function withTimeout(p, ms) {
     return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, ms); })]);
   }
@@ -144,7 +151,8 @@ const buildMapHtml = (initLat, initLng) => `
       document.getElementById('map'),
       {
         location: { center: [69.2401, 41.2995], zoom: 12 },
-        behaviors: ['drag', 'pinchZoom', 'pinchRotate', 'scrollZoom', 'dblClick']
+        behaviors: ['drag', 'pinchZoom', 'pinchRotate', 'scrollZoom', 'dblClick'],
+        theme: window.__DARK ? 'dark' : 'light'
       },
       [new C.YMapDefaultSchemeLayer({}), new C.YMapDefaultFeaturesLayer({})]
     );
@@ -258,6 +266,15 @@ export default function LocationMapPicker({
 }) {
   const webRef = useRef(null);
   const fullRef = useRef(null);
+  const { theme } = useTheme();
+  const isDark = !!theme?.isDark;
+  // Sahifa yuklanishidan oldin mavzu beriladi; keyin o'zgarsa quyidagi effekt xaritalarga yuboradi.
+  const themeJs = `window.__DARK=${isDark ? 'true' : 'false'};true;`;
+  useEffect(() => {
+    const js = `setTheme(${isDark ? 'true' : 'false'}); true;`;
+    webRef.current?.injectJavaScript(js);
+    fullRef.current?.injectJavaScript(js);
+  }, [isDark]);
   const [locating, setLocating] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   // HTML faqat bir marta quriladi (boshlang'ich nuqta bilan). `lat/lng` o'zgarganda qayta qurilsa WebView
@@ -455,6 +472,7 @@ export default function LocationMapPicker({
           ref={webRef}
           style={styles.map}
           source={{ html: mapHtml, baseUrl: MAP_BASE_URL }}
+          injectedJavaScriptBeforeContentLoaded={themeJs}
           onMessage={makeOnMessage(webRef)}
           onLoadEnd={handleLoadEnd}
           javaScriptEnabled
@@ -508,6 +526,7 @@ export default function LocationMapPicker({
             ref={fullRef}
             style={styles.fullMap}
             source={{ html: buildMapHtml(lat, lng), baseUrl: MAP_BASE_URL }}
+            injectedJavaScriptBeforeContentLoaded={themeJs}
             onMessage={makeOnMessage(fullRef)}
             javaScriptEnabled
             originWhitelist={['*']}

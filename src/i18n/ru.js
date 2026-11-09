@@ -430,6 +430,8 @@ export const ru = {
     emptySub: 'Измените запрос или фильтры',
     clear: 'Сбросить выбор',
     pickOnMap: 'Выбрать на карте',
+    mapPriceFrom: 'от {price} сум',
+    mapOpen: 'Открыть',
     pickTitle: 'Выберите местоположение',
     pickHint: 'Нажмите на карту, чтобы отметить ваше местоположение',
     pickConfirm: 'Подтвердить',

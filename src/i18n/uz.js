@@ -431,6 +431,8 @@ export const uz = {
     emptySub: "Qidiruv yoki filtrlarni o'zgartirib ko'ring",
     clear: 'Tanlovni bekor qilish',
     pickOnMap: 'Xaritada tanlash',
+    mapPriceFrom: "{price} so'm dan",
+    mapOpen: "Ko'rish",
     pickTitle: 'Joylashuvni tanlang',
     pickHint: "Xaritaga bosib o'zingiz turgan joyni belgilang",
     pickConfirm: 'Tasdiqlash',
