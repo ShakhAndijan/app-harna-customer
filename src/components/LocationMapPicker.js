@@ -33,13 +33,14 @@ const buildMapHtml = (initLat, initLng) => `
     * { margin:0; padding:0; box-sizing:border-box; }
     html, body, #map { width:100%; height:100%; }
   </style>
-  <script src="https://api-maps.yandex.ru/2.1/?apikey=${YANDEX_MAPS_API_KEY}&lang=ru_RU"></script>
+  <script src="https://api-maps.yandex.ru/v3/?apikey=${YANDEX_MAPS_API_KEY}&lang=ru_RU"></script>
 </head>
 <body>
 <div id="map"></div>
 <script>
   var myMap = null;
   var placemark = null;
+  var C = null; // ymaps3 asosiy sinflari
 
   // Belgi (SVG): yumaloq kvadratda odamcha, pastida tayoqcha va halqa. Halqaning markazi — tanlangan nuqta.
   var PIN_SVG =
@@ -68,17 +69,23 @@ const buildMapHtml = (initLat, initLng) => `
     }));
   }
 
+  // coords: [lat, lng]. v3 da koordinata tartibi [lng, lat]. Belgi DOM-marker: xarita burilganda ham tik turadi,
+  // halqa markazi (64x92 rasmda 32,80) tanlangan nuqtaga to'g'ri keladi.
   function setPlacemark(coords) {
+    var lngLat = [coords[1], coords[0]];
     if (placemark) {
-      placemark.geometry.setCoordinates(coords);
+      placemark.update({ coordinates: lngLat });
     } else {
-      placemark = new ymaps.Placemark(coords, {}, {
-        iconLayout: 'default#image',
-        iconImageHref: PIN_HREF,
-        iconImageSize: [64, 92],
-        iconImageOffset: [-32, -80]
-      });
-      myMap.geoObjects.add(placemark);
+      var el = document.createElement('div');
+      el.style.cssText = 'transform:translate(-32px,-80px);pointer-events:none;width:64px;height:92px;';
+      var img = document.createElement('img');
+      img.src = PIN_HREF;
+      img.width = 64;
+      img.height = 92;
+      img.style.cssText = 'display:block;pointer-events:none;';
+      el.appendChild(img);
+      placemark = new C.YMapMarker({ coordinates: lngLat }, el);
+      myMap.addChild(placemark);
     }
   }
 
@@ -101,7 +108,7 @@ const buildMapHtml = (initLat, initLng) => `
 
   function goTo(lat, lng, zoom, source) {
     whenMap(function () {
-      myMap.setCenter([lat, lng], zoom || 18);
+      myMap.setLocation({ center: [lng, lat], zoom: zoom || 18 });
       post(lat, lng, source);
     });
   }
@@ -115,40 +122,58 @@ const buildMapHtml = (initLat, initLng) => `
   }
 
   function panTo(lat, lng, zoom) {
-    whenMap(function () { myMap.setCenter([lat, lng], zoom || 10); });
+    whenMap(function () { myMap.setLocation({ center: [lng, lat], zoom: zoom || 10 }); });
   }
 
   function panToSafe(lat, lng, zoom) {
     panTo(lat, lng, zoom);
   }
 
-  ymaps.ready(function () {
-    myMap = new ymaps.Map('map', {
-      center: [41.2995, 69.2401],
-      zoom: 12,
-      controls: ['zoomControl']
-    }, {
-      suppressMapOpenBlock: true,
-      copyrightLogoVisible: false,
-      copyrightProvidersVisible: false,
-      copyrightUaVisible: false
-    });
+  function withTimeout(p, ms) {
+    return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, ms); })]);
+  }
+
+  async function init() {
+    await ymaps3.ready;
+    C = ymaps3;
+    ymaps3.import.registerCdn('https://cdn.jsdelivr.net/npm/{package}', [
+      '@yandex/ymaps3-default-ui-theme@0.0'
+    ]);
+    // Ikki barmoq bilan burish (pinchRotate) va yaqinlashtirish (pinchZoom) yoqilgan.
+    myMap = new C.YMap(
+      document.getElementById('map'),
+      {
+        location: { center: [69.2401, 41.2995], zoom: 12 },
+        behaviors: ['drag', 'pinchZoom', 'pinchRotate', 'scrollZoom', 'dblClick']
+      },
+      [new C.YMapDefaultSchemeLayer({}), new C.YMapDefaultFeaturesLayer({})]
+    );
 
     ${
       initLat && initLng
-        ? `setPlacemark([${initLat}, ${initLng}]); myMap.setCenter([${initLat}, ${initLng}], 17);`
+        ? `setPlacemark([${initLat}, ${initLng}]); myMap.setLocation({ center: [${initLng}, ${initLat}], zoom: 17 });`
         : ''
     }
 
-    myMap.events.add('click', function (e) {
-      var coords = e.get('coords');
-      post(coords[0], coords[1]);
-    });
+    myMap.addChild(new C.YMapListener({
+      layer: 'any',
+      onClick: function (object, event) {
+        var c = event && event.coordinates;
+        if (c) post(c[1], c[0]);
+      }
+    }));
 
     var pending = queue;
     queue = [];
     pending.forEach(function (fn) { fn(); });
-  });
+
+    // Zoom va kompas (shimolga qaytarish) tugmalari; yuklanmasa xarita baribir ishlaydi.
+    try {
+      var ui = await withTimeout(ymaps3.import('@yandex/ymaps3-default-ui-theme'), 8000);
+      myMap.addChild(new C.YMapControls({ position: 'right' }, [new ui.YMapZoomControl({}), new ui.YMapRotateControl({})]));
+    } catch (e) {}
+  }
+  init();
 </script>
 </body>
 </html>`;
