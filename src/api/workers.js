@@ -56,6 +56,9 @@ export function mapWorker(w) {
     latitude: w.latitude != null ? Number(w.latitude) : null,
     longitude: w.longitude != null ? Number(w.longitude) : null,
     distanceKm: w.distance_km != null ? Number(w.distance_km) : null,
+    // Ish hududi (radius rejimida) — ustalar xaritasida tanlanganda doira bo'lib chiqadi.
+    workAreaMode: w.work_area_mode ?? null,
+    workRadiusKm: w.work_radius_km ?? null,
     mainCategory: w.main_category?.name ?? '',
     categoryId: w.main_category?.id ?? null,
     skills: Array.isArray(w.skills) ? w.skills : [],

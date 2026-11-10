@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
-import * as Location from 'expo-location';
 import { YANDEX_MAPS_API_KEY } from '../../constants/config';
+import { forwardGeocode } from '../../utils/addressSearch';
 
-// Yandex API kaliti "harna.uz" domeniga bog'langan (LocationMapPicker bilan bir xil sabab).
+// Yandex Maps JS API v3. Kalit "harna.uz" domeniga bog'langan (LocationMapPicker bilan bir xil sabab).
 const MAP_BASE_URL = 'https://dev.harna.uz/';
 
 const HTML = `
@@ -13,301 +13,222 @@ const HTML = `
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    html, body, #map { width:100%; height:100%; }
-    .pin { transform:translate(-50%,-50%); padding:8px; cursor:pointer; }
-    .dot { width:18px; height:18px; border-radius:50%; background:#ff931e; border:3px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.45); }
-    .dot { transition:transform .2s ease, background .2s ease; }
-    .dot.sel { background:#ed4543; transform:scale(1.3); animation:selpulse 1.5s ease-out infinite; }
-    .dot.drop { animation:drop .55s cubic-bezier(.3,1.6,.5,1) backwards; }
-    @keyframes drop { 0% { transform:translateY(-28px) scale(.4); opacity:0; } 55% { opacity:1; } 100% { transform:none; opacity:1; } }
-    @keyframes selpulse { 0% { box-shadow:0 0 0 0 rgba(237,69,67,.55), 0 1px 4px rgba(0,0,0,.45); } 100% { box-shadow:0 0 0 15px rgba(237,69,67,0), 0 1px 4px rgba(0,0,0,.45); } }
-    .me { position:relative; transform:translate(-50%,-50%); width:18px; height:18px; }
-    .me .pulse { position:absolute; left:0; top:0; width:100%; height:100%; border-radius:50%; background:rgba(30,152,255,.5); animation:pulse 2s ease-out infinite; }
-    .me .core { position:absolute; left:0; top:0; width:100%; height:100%; border-radius:50%; background:#1e98ff; border:3px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4); }
-    .me .arrow { position:absolute; left:0; top:0; width:100%; height:100%; display:none; }
-    .me .arrow:before { content:''; position:absolute; left:50%; top:-14px; margin-left:-7px; border:7px solid transparent; border-bottom:11px solid #1e98ff; border-top:0; }
-    @keyframes pulse { 0% { transform:scale(1); opacity:.8; } 100% { transform:scale(3.6); opacity:0; } }
-    .nrt { width:1px; height:1px; pointer-events:none; }
-    .pop { transform:translate(-50%,calc(-100% - 22px)); width:210px; cursor:pointer; animation:popin .18s ease-out; }
-    .pop .card { background:#fff; color:#1a1a1a; border-radius:14px; padding:10px 12px; box-shadow:0 4px 16px rgba(0,0,0,.28); font-family:sans-serif; }
-    .pop .tail { width:14px; height:14px; background:#fff; transform:rotate(45deg); margin:-7px auto 0; box-shadow:3px 3px 6px rgba(0,0,0,.15); }
-    .pop .nm { font-weight:700; font-size:14px; line-height:1.25; }
-    .pop .rl { font-size:12px; color:#777; margin-top:2px; }
-    .pop .mt { display:flex; gap:10px; align-items:center; margin-top:6px; font-size:13px; }
-    .pop .rt { color:#e8890c; font-weight:700; }
-    .pop .pr { font-weight:600; }
-    .pop .go { margin-top:8px; background:#ff931e; color:#fff; text-align:center; font-weight:700; font-size:13px; border-radius:9px; padding:7px 0; }
-    body.dark .pop .card { background:#232733; color:#f2f2f2; }
-    body.dark .pop .tail { background:#232733; }
-    body.dark .pop .rl { color:#9aa0ad; }
-    @keyframes popin { from { opacity:0; margin-top:8px; } to { opacity:1; margin-top:0; } }
-    .bubble { transform:translate(-50%,-50%); background:#ff931e; color:#fff; font:700 13px sans-serif; border-radius:16px; padding:5px 11px; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.4); cursor:pointer; white-space:nowrap; }
-    .cl { transform:translate(-50%,-50%); width:38px; height:38px; border-radius:50%; background:#ff931e; color:#fff; font:700 14px sans-serif; border:3px solid #fff; box-shadow:0 1px 5px rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; cursor:pointer; }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    html, body, #map { width:100%; height:100%; overflow:hidden; }
+    .fab {
+      position:absolute; right:12px; width:42px; height:42px; border-radius:14px; background:#fff;
+      box-shadow:0 2px 10px rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center;
+      z-index:10; font:700 24px/1 -apple-system, Roboto, sans-serif; color:#222; user-select:none;
+    }
+    #zin { top:50%; margin-top:-48px; }
+    #zout { top:50%; margin-top:2px; }
+    #compass { top:12px; display:none; }
+    #t3d { top:50%; margin-top:52px; font-size:14px; }
+    #t3d.on { background:#e87a45; color:#fff; }
+    .pin { position:relative; width:20px; height:20px; border-radius:10px; background:#e87a45; border:3px solid #fff;
+      box-shadow:0 1px 5px rgba(0,0,0,.4); transform:translate(-10px,-10px); transition:all .15s; }
+    .pin.sel { width:26px; height:26px; border-radius:13px; background:#e53935; transform:translate(-13px,-13px); }
+    .me { position:relative; width:18px; height:18px; border-radius:9px; background:#1e88e5; border:3px solid #fff;
+      box-shadow:0 1px 4px rgba(0,0,0,.35); transform:translate(-9px,-9px); }
+    .me::after { content:''; position:absolute; left:-3px; top:-3px; width:18px; height:18px; border-radius:50%;
+      background:rgba(30,136,229,.45); animation:pulse 2s ease-out infinite; pointer-events:none; }
+    @keyframes pulse { 0% { transform:scale(1); opacity:.9; } 100% { transform:scale(3.6); opacity:0; } }
+    @keyframes pop { 0% { transform:translate(-13px,-13px) scale(.6); } 60% { transform:translate(-13px,-13px) scale(1.25); } 100% { transform:translate(-13px,-13px) scale(1); } }
+    .pin.sel { animation:pop .28s ease-out; }
+    .pin.sel::after { content:''; position:absolute; left:-3px; top:-3px; width:26px; height:26px; border-radius:50%;
+      background:rgba(229,57,53,.4); animation:ring 1.6s ease-out infinite; pointer-events:none; }
+    @keyframes ring { 0% { transform:scale(1); opacity:.9; } 100% { transform:scale(2.8); opacity:0; } }
+    @keyframes drop { 0% { transform:translate(-10px,-46px) scale(.5); opacity:0; } 55% { transform:translate(-10px,-6px) scale(1.1); opacity:1; }
+      75% { transform:translate(-10px,-14px) scale(.95); } 100% { transform:translate(-10px,-10px) scale(1); opacity:1; } }
+    .pin.drop { animation:drop .5s cubic-bezier(.3,.7,.4,1) backwards; }
+    .pin.sel.drop { animation:pop .28s ease-out; }
+    .pop { position:relative; width:0; height:0; }
+    .pop .box { position:absolute; left:0; bottom:22px; transform:translateX(-50%); background:#fff; color:#222;
+      border-radius:12px; padding:7px 11px; box-shadow:0 3px 12px rgba(0,0,0,.3); white-space:nowrap;
+      font:600 13px/1.25 -apple-system, Roboto, sans-serif; animation:rise .18s ease-out; }
+    .pop .box::after { content:''; position:absolute; left:50%; bottom:-6px; margin-left:-6px; width:12px; height:12px;
+      background:inherit; transform:rotate(45deg); border-radius:0 0 3px 0; }
+    .pop .sub { font-weight:500; font-size:12px; color:#777; margin-top:2px; }
+    body.dark .pop .box { background:#2a2a2e; color:#f2f2f2; }
+    body.dark .pop .sub { color:#aaa; }
+    @keyframes rise { from { opacity:0; margin-bottom:-6px; } to { opacity:1; margin-bottom:0; } }
+    .clu { min-width:34px; height:34px; padding:0 9px; border-radius:17px; background:#e87a45; color:#fff;
+      border:3px solid #fff; box-shadow:0 1px 6px rgba(0,0,0,.4); display:flex; align-items:center;
+      justify-content:center; font:800 14px/1 -apple-system, Roboto, sans-serif; transform:translate(-50%,-50%); }
   </style>
   <script src="https://api-maps.yandex.ru/v3/?apikey=${YANDEX_MAPS_API_KEY}&lang=ru_RU"></script>
 </head>
 <body>
 <div id="map"></div>
+<div id="compass" class="fab" onclick="resetNorth()">
+  <svg id="needle" width="26" height="26" viewBox="0 0 26 26">
+    <path d="M13 2 L18 13 L13 11 L8 13 Z" fill="#e53935"/>
+    <path d="M13 24 L18 13 L13 15 L8 13 Z" fill="#9e9e9e"/>
+  </svg>
+</div>
+<div id="zin" class="fab" onclick="zoomBy(1)">+</div>
+<div id="zout" class="fab" onclick="zoomBy(-1)">&minus;</div>
+<div id="t3d" class="fab" onclick="toggle3d()">3D</div>
 <script>
   var map = null;
   var ready = false;
   var pending = null;
-  var C = null;          // ymaps3 asosiy sinflari
-  var Clust = null;      // @yandex/ymaps3-clusterer (yuklanmasa null — klastersiz chiziladi)
-  var els = {};          // id -> nuqta elementi (tanlanganda rangi o'zgaradi)
+  var pinEls = {};
   var selectedId = null;
-  var clusterer = null;
-  var plain = [];        // klasterlovchi paket yo'q bo'lganda oddiy belgilar
-  var bubbles = [];      // viloyat/tuman bo'yicha ustalar soni (uzoqlashtirilganda)
   var meMarker = null;
-  var meEl = null;       // "men" belgisi (pulsatsiyali nuqta + yo'nalish strelkasi)
-  var arrowEl = null;
-  var northMarker = null; // shimol tomonni ekranda aniqlash uchun ko'rinmas belgi
-  var northEl = null;
-  var meLL = null;
-  var heading = null;    // qurilma yo'nalishi (gradus, shimoldan soat yo'nalishida)
-  var pinData = {};      // id -> { id, lat, lon, name, role, rating, price }
-  var popup = null;      // tanlangan mutaxassis kartochkasi
-  var seen = {};         // allaqachon "tushib kelgan" nuqtalar (animatsiya faqat birinchi chiqishda)
-  var areaFeature = null; // tanlangan mutaxassisning ish hududi doirasi
-  var isDark = !!window.__DARK;
-  var OPEN_LABEL = window.__OPEN_LABEL || 'Open';
-  var curZoom = 11;
-  var lastZoomSent = null;
+  var clusterer = null;
+  var bubbles = []; // viloyat/tuman bo'yicha ustalar soni (uzoqlashtirilganda)
   var zoomTimer = null;
+  var lastTap = 0;
+  var Clu = null;
+  var pinData = {};
+  var curPins = [];
+  var selMarker = null;
+  var popup = null;
+  var schemeLayer = null;
+  var seen = {};
+  var areaFeature = null;
+  var is3d = false;
 
   function send(msg) {
     window.ReactNativeWebView.postMessage(JSON.stringify(msg));
   }
 
-  function sid(id) { return id == null ? null : String(id); }
-
-  function box(cls, text, title) {
-    var d = document.createElement('div');
-    d.className = cls;
-    if (text != null) d.textContent = text;
-    if (title) d.title = title;
-    return d;
+  function zoomBy(d) {
+    if (!map) return;
+    map.setLocation({ zoom: Math.max(2, Math.min(21, map.zoom + d)), duration: 200 });
   }
 
-  function pinEl(id) {
-    var wrap = box('pin');
-    var cls = 'dot' + (id === selectedId ? ' sel' : '');
-    if (!seen[id]) { seen[id] = true; cls += ' drop'; }
-    var dot = box(cls);
-    wrap.appendChild(dot);
-    els[id] = dot;
-    return wrap;
+  function resetNorth() {
+    if (!map) return;
+    map.setCamera({ azimuth: 0, tilt: 0, duration: 300 });
   }
 
-  // Belgi bosilgach xarita bosilishi ham ishlab, tanlovni darhol bekor qilib yubormasligi uchun vaqt belgilanadi.
-  var markerAt = 0;
-  function mk(lon, lat, el, onClick) {
-    var props = { coordinates: [lon, lat] };
-    if (onClick) props.onClick = function () { markerAt = Date.now(); onClick(); };
-    return new C.YMapMarker(props, el);
+  function onCamera(camera) {
+    var az = (camera && camera.azimuth) || 0;
+    var tl = (camera && camera.tilt) || 0;
+    document.getElementById('compass').style.display =
+      (Math.abs(az) > 0.02 || Math.abs(tl) > 0.02) ? 'flex' : 'none';
+    document.getElementById('needle').style.transform = 'rotate(' + (-az) + 'rad)';
   }
 
-  // Belgi bosilganda: tanlanadi va kamera ravon uchib shu nuqtaga keladi (kartochka ko'rinib turishi uchun).
-  function pinTap(id) {
-    var p = pinData[id];
-    if (!p) return;
-    send({ id: p.id });
-    map.setLocation({ center: [p.lon, p.lat], zoom: Math.max(curZoom, 12), duration: 500 });
+  function styleEl(el, id) {
+    el.className = (id === selectedId ? 'pin sel' : 'pin') + (el._d ? ' drop' : '');
   }
 
-  function hidePopup() {
-    if (popup) { map.removeChild(popup); popup = null; }
+  function makePin(f) {
+    var id = f.properties.pid;
+    var el = document.createElement('div');
+    if (!seen[id]) { seen[id] = 1; el._d = true; el.style.animationDelay = Math.round(Math.random() * 220) + 'ms'; }
+    styleEl(el, id);
+    pinEls[id] = el;
+    return new ymaps3.YMapMarker({
+      coordinates: f.geometry.coordinates,
+      onClick: function () { lastTap = Date.now(); send({ id: id }); }
+    }, el);
   }
 
-  // Xarita ustidagi mini-kartochka: ism, kasb, reyting, narx va "Ko'rish" tugmasi.
-  function showPopup(id) {
-    hidePopup();
-    var p = pinData[id];
-    if (!p) return;
-    var wrap = box('pop');
-    var card = box('card');
-    card.appendChild(box('nm', p.name));
-    if (p.role) card.appendChild(box('rl', p.role));
-    var meta = box('mt');
-    if (p.rating) meta.appendChild(box('rt', '★ ' + p.rating));
-    if (p.price) meta.appendChild(box('pr', p.price));
-    if (meta.childNodes.length) card.appendChild(meta);
-    card.appendChild(box('go', OPEN_LABEL));
-    wrap.appendChild(card);
-    wrap.appendChild(box('tail'));
-    popup = new C.YMapMarker({
-      coordinates: [p.lon, p.lat],
-      zIndex: 2000,
-      onClick: function () { markerAt = Date.now(); send({ open: p.id }); }
-    }, wrap);
-    map.addChild(popup);
+  function makeCluster(coordinates, features) {
+    var el = document.createElement('div');
+    el.className = 'clu';
+    el.textContent = String(features.length);
+    return new ymaps3.YMapMarker({
+      coordinates: coordinates,
+      onClick: function () {
+        lastTap = Date.now();
+        map.setLocation({ center: coordinates, zoom: Math.min(21, map.zoom + 2), duration: 300 });
+      }
+    }, el);
   }
 
-  // Qurilma yo'nalishi strelkasi: shimol ekranda qayerda ekanini (xarita burilgan bo'lishi mumkin) ko'rinmas
-  // belgidan o'lchab, strelka burchagi = qurilma yo'nalishi + shimolning ekrandagi burchagi.
-  function placeNorth() {
-    if (!meLL || !northMarker) return;
-    var metersPerPx = 156543 * Math.cos(meLL[1] * Math.PI / 180) / Math.pow(2, curZoom);
-    var dLat = (40 * metersPerPx) / 111000;
-    northMarker.update({ coordinates: [meLL[0], meLL[1] + dLat] });
+  // Tanlangan viloyat/tuman markazi: {lat, lon, zoom}.
+  function focusArea(a) {
+    map.setLocation({ center: [a.lon, a.lat], zoom: a.zoom, duration: 300 });
   }
 
-  function updateArrow() {
-    if (!arrowEl) return;
-    if (heading == null || !meEl || !northEl) { arrowEl.style.display = 'none'; return; }
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        if (!meEl || !northEl || heading == null) return;
-        var a = meEl.getBoundingClientRect();
-        var b = northEl.getBoundingClientRect();
-        if (!b.width && !b.height && !b.left && !b.top) return;
-        var dx = b.left - (a.left + a.width / 2);
-        var dy = b.top - (a.top + a.height / 2);
-        if (Math.abs(dx) + Math.abs(dy) < 5) return;
-        var north = Math.atan2(dx, -dy) * 180 / Math.PI;
-        arrowEl.style.display = 'block';
-        arrowEl.style.transform = 'rotate(' + (heading + north) + 'deg)';
+  function fitPins(pins) {
+    var minLat = 90, maxLat = -90, minLon = 180, maxLon = -180;
+    pins.forEach(function (p) {
+      minLat = Math.min(minLat, p.lat); maxLat = Math.max(maxLat, p.lat);
+      minLon = Math.min(minLon, p.lon); maxLon = Math.max(maxLon, p.lon);
+    });
+    var dLat = Math.max((maxLat - minLat) * 0.15, 0.002);
+    var dLon = Math.max((maxLon - minLon) * 0.15, 0.002);
+    map.setLocation({
+      bounds: [[minLon - dLon, minLat - dLat], [maxLon + dLon, maxLat + dLat]],
+      duration: 300
+    });
+  }
+
+  // data: { pins: [{id, lat, lon}], clusters: [{name, count, lat, lon, zoom}] | null, me: {lat, lon} | null, area: {lat, lon, zoom} | null, fit: boolean }
+  // Yaqin nuqtalar raqamli klasterga birlashadi; klasterni bossa yaqinlashadi.
+  // Tanlangan usta klasterdan chiqarilib, alohida (ko'rinib turadigan) nuqta bo'ladi.
+  function renderPins() {
+    if (clusterer) { map.removeChild(clusterer); clusterer = null; }
+    if (selMarker) { map.removeChild(selMarker); selMarker = null; }
+    pinEls = {};
+    var features = [];
+    curPins.forEach(function (p) {
+      if (p.id === selectedId) return;
+      features.push({
+        type: 'Feature',
+        id: String(p.id),
+        geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+        properties: { pid: p.id }
       });
     });
-  }
-
-  function setHeading(deg) {
-    heading = deg == null ? null : deg;
-    updateArrow();
-  }
-
-  // Ish hududi: a = { lat, lon, km } — shaffof doira (ko'pburchak) chiziladi va kamera unga moslanadi; null — olib tashlanadi.
-  function setWorkArea(a) {
-    if (areaFeature) { map.removeChild(areaFeature); areaFeature = null; }
-    if (!a || !ready) return;
-    var ring = [];
-    var dLat = (a.km * 1000) / 110540;
-    var dLon = (a.km * 1000) / (111320 * Math.cos(a.lat * Math.PI / 180));
-    for (var i = 0; i <= 64; i++) {
-      var ang = (2 * Math.PI * i) / 64;
-      ring.push([a.lon + dLon * Math.sin(ang), a.lat + dLat * Math.cos(ang)]);
-    }
-    areaFeature = new C.YMapFeature({
-      geometry: { type: 'Polygon', coordinates: [ring] },
-      style: { fill: 'rgba(255,147,30,0.16)', stroke: [{ color: '#ff931e', width: 2 }] }
+    clusterer = new Clu.YMapClusterer({
+      method: Clu.clusterByGrid({ gridSize: 72 }),
+      features: features,
+      marker: makePin,
+      cluster: makeCluster
     });
-    map.addChild(areaFeature);
-    fitPoints(ring);
-  }
-
-  function setTheme(dark) {
-    isDark = !!dark;
-    document.body.className = isDark ? 'dark' : '';
-    if (map) map.update({ theme: isDark ? 'dark' : 'light' });
-  }
-
-  // Berilgan nuqtalarni (kengaytirib) ko'rinishga sig'diradi; hammasi bir joyda bo'lsa shu joyga yaqinlashadi.
-  function fitPoints(pts) {
-    var minX = 180, maxX = -180, minY = 90, maxY = -90;
-    pts.forEach(function (p) {
-      if (p[0] < minX) minX = p[0];
-      if (p[0] > maxX) maxX = p[0];
-      if (p[1] < minY) minY = p[1];
-      if (p[1] > maxY) maxY = p[1];
-    });
-    if (maxX - minX < 1e-6 && maxY - minY < 1e-6) {
-      map.setLocation({ center: [minX, minY], zoom: Math.min(curZoom + 2, 19), duration: 500 });
-      return;
+    map.addChild(clusterer);
+    var sp = selectedId != null ? pinData[selectedId] : null;
+    if (sp) {
+      selMarker = makePin({ geometry: { coordinates: [sp.lon, sp.lat] }, properties: { pid: sp.id } });
+      map.addChild(selMarker);
     }
-    var dx = (maxX - minX) * 0.25, dy = (maxY - minY) * 0.25;
-    map.setLocation({ bounds: [[minX - dx, maxY + dy], [maxX + dx, minY - dy]], duration: 500 });
   }
 
-  // Tanlangan viloyat/tuman markazi: koordinata bo'lsa o'sha joyga, bo'lmasa nomi bo'yicha qidirib, topilmasa zaxira nuqtaga.
-  function focusArea(a) {
-    function fallback() { map.setLocation({ center: [a.fallback.lon, a.fallback.lat], zoom: a.fallback.zoom, duration: 500 }); }
-    if (a.lat != null) { map.setLocation({ center: [a.lon, a.lat], zoom: a.zoom, duration: 500 }); return; }
-    try {
-      ymaps3.search({ text: a.query, limit: 1 }).then(function (res) {
-        var f = res && res[0];
-        if (f && f.geometry) map.setLocation({ center: f.geometry.coordinates, zoom: 11, duration: 500 });
-        else fallback();
-      }, fallback);
-    } catch (e) { fallback(); }
-  }
-
-  function clearPins() {
-    if (clusterer) { map.removeChild(clusterer); clusterer = null; }
-    plain.forEach(function (m) { map.removeChild(m); });
-    plain = [];
-    els = {};
-  }
-
-  // data: { pins: [{id, lat, lon}], clusters: [{name, count, lat, lon, zoom}] | null, me: {lat, lon} | null, area: {...} | null, fit: boolean }
   function setData(data) {
     if (!ready) { pending = data; return; }
-    clearPins();
-    bubbles.forEach(function (m) { map.removeChild(m); });
+    if (selMarker) { map.removeChild(selMarker); selMarker = null; }
+    if (clusterer) { map.removeChild(clusterer); clusterer = null; }
+    bubbles.forEach(function (b) { map.removeChild(b); });
     bubbles = [];
+    pinEls = {};
     pinData = {};
     if (data.fit) seen = {};
-    data.pins.forEach(function (p) { pinData[sid(p.id)] = p; });
+    data.pins.forEach(function (p) { pinData[p.id] = p; });
+    if (meMarker) { map.removeChild(meMarker); meMarker = null; }
 
     if (data.clusters) {
       // Uzoqdan ko'rinishda alohida ustalar o'rniga hudud bo'yicha soni; bossa o'sha hududga yaqinlashadi.
       data.clusters.forEach(function (c) {
-        var el = box('bubble', String(c.count), c.name);
-        var m = mk(c.lon, c.lat, el, function () {
-          map.setLocation({ center: [c.lon, c.lat], zoom: c.zoom, duration: 500 });
-        });
-        map.addChild(m);
-        bubbles.push(m);
+        var el = document.createElement('div');
+        el.className = 'clu';
+        el.textContent = String(c.count);
+        var mk = new ymaps3.YMapMarker({
+          coordinates: [c.lon, c.lat],
+          onClick: function () {
+            lastTap = Date.now();
+            map.setLocation({ center: [c.lon, c.lat], zoom: c.zoom, duration: 300 });
+          }
+        }, el);
+        map.addChild(mk);
+        bubbles.push(mk);
       });
-    } else if (Clust) {
-      // Yaqin nuqtalar raqamli klasterga birlashadi; klasterni bossa yaqinlashadi.
-      var features = data.pins.map(function (p) {
-        return { type: 'Feature', id: sid(p.id), geometry: { type: 'Point', coordinates: [p.lon, p.lat] } };
-      });
-      clusterer = new Clust.YMapClusterer({
-        method: Clust.clusterByGrid({ gridSize: 72 }),
-        features: features,
-        marker: function (f) {
-          var id = f.id;
-          return mk(f.geometry.coordinates[0], f.geometry.coordinates[1], pinEl(id), function () {
-            pinTap(id);
-          });
-        },
-        cluster: function (coordinates, feats) {
-          return mk(coordinates[0], coordinates[1], box('cl', String(feats.length)), function () {
-            fitPoints(feats.map(function (x) { return x.geometry.coordinates; }));
-          });
-        }
-      });
-      map.addChild(clusterer);
     } else {
-      data.pins.forEach(function (p) {
-        var id = sid(p.id);
-        var m = mk(p.lon, p.lat, pinEl(id), function () { pinTap(id); });
-        map.addChild(m);
-        plain.push(m);
-      });
+      curPins = data.pins;
+      renderPins();
     }
 
-    if (meMarker) { map.removeChild(meMarker); meMarker = null; }
-    if (northMarker) { map.removeChild(northMarker); northMarker = null; }
-    meEl = null; arrowEl = null; northEl = null; meLL = null;
     if (data.me) {
-      // Pulsatsiyali ko'k nuqta + (ruxsat bo'lsa) yo'nalish strelkasi.
-      meEl = box('me');
-      meEl.appendChild(box('pulse'));
-      meEl.appendChild(box('core'));
-      arrowEl = box('arrow');
-      meEl.appendChild(arrowEl);
-      meMarker = mk(data.me.lon, data.me.lat, meEl);
+      var me = document.createElement('div');
+      me.className = 'me';
+      meMarker = new ymaps3.YMapMarker({ coordinates: [data.me.lon, data.me.lat] }, me);
       map.addChild(meMarker);
-      meLL = [data.me.lon, data.me.lat];
-      northEl = box('nrt');
-      northMarker = mk(meLL[0], meLL[1], northEl);
-      map.addChild(northMarker);
-      placeNorth();
-      updateArrow();
     }
 
     if (!data.fit) return;
@@ -315,74 +236,130 @@ const HTML = `
     if (data.area) {
       focusArea(data.area);
     } else if (data.pins.length > 1) {
-      fitPoints(data.pins.map(function (p) { return [p.lon, p.lat]; }));
+      fitPins(data.pins);
     } else if (data.pins.length === 1) {
-      map.setLocation({ center: [data.pins[0].lon, data.pins[0].lat], zoom: 14, duration: 500 });
+      map.setLocation({ center: [data.pins[0].lon, data.pins[0].lat], zoom: 14, duration: 300 });
     } else if (data.me) {
-      map.setLocation({ center: [data.me.lon, data.me.lat], zoom: 12, duration: 500 });
+      map.setLocation({ center: [data.me.lon, data.me.lat], zoom: 12, duration: 300 });
+    }
+  }
+
+  // Qorong'i/yorug' xarita uslubi.
+  function setTheme(dark) {
+    document.body.className = dark ? 'dark' : '';
+    if (!map) return;
+    if (schemeLayer) map.removeChild(schemeLayer);
+    schemeLayer = new ymaps3.YMapDefaultSchemeLayer({ theme: dark ? 'dark' : 'light' });
+    map.addChild(schemeLayer);
+  }
+
+  function hidePopup() {
+    if (popup) { map.removeChild(popup); popup = null; }
+  }
+
+  function showPopup(p) {
+    hidePopup();
+    var wrap = document.createElement('div');
+    wrap.className = 'pop';
+    var box = document.createElement('div');
+    box.className = 'box';
+    var t = document.createElement('div');
+    t.textContent = p.title || '';
+    box.appendChild(t);
+    if (p.sub) {
+      var sb = document.createElement('div');
+      sb.className = 'sub';
+      sb.textContent = p.sub;
+      box.appendChild(sb);
+    }
+    wrap.appendChild(box);
+    popup = new ymaps3.YMapMarker({ coordinates: [p.lon, p.lat], zIndex: 2000 }, wrap);
+    map.addChild(popup);
+  }
+
+  // Ustaning ish hududi (radius, km) — tanlangan nuqta atrofida shaffof doira.
+  function hideArea() {
+    if (areaFeature) { map.removeChild(areaFeature); areaFeature = null; }
+  }
+
+  function showArea(p) {
+    hideArea();
+    if (!p || !(p.radiusKm > 0)) return;
+    var ring = [];
+    var dLat = p.radiusKm / 111.32;
+    var dLon = p.radiusKm / (111.32 * Math.cos(p.lat * Math.PI / 180));
+    for (var i = 0; i <= 64; i++) {
+      var a = (i / 64) * 2 * Math.PI;
+      ring.push([p.lon + dLon * Math.cos(a), p.lat + dLat * Math.sin(a)]);
+    }
+    areaFeature = new ymaps3.YMapFeature({
+      geometry: { type: 'Polygon', coordinates: [ring] },
+      style: { fill: 'rgba(232,122,69,0.16)', stroke: [{ color: '#e87a45', width: 2, dash: [6, 4] }] }
+    });
+    map.addChild(areaFeature);
+  }
+
+  // 3D rejim: xarita qiyalanadi va binolar hajmli ko'rinadi (yaqinlashganda yaqqol).
+  function toggle3d() {
+    if (!map) return;
+    is3d = !is3d;
+    document.getElementById('t3d').className = is3d ? 'fab on' : 'fab';
+    if (is3d) {
+      map.setLocation({ zoom: Math.max(map.zoom, 16), duration: 500 });
+      map.setCamera({ tilt: 0.9, duration: 500 });
+    } else {
+      map.setCamera({ tilt: 0, azimuth: 0, duration: 400 });
     }
   }
 
   function select(id) {
-    var prev = selectedId;
-    selectedId = sid(id);
-    if (prev != null && els[prev]) els[prev].className = 'dot';
-    if (selectedId != null && els[selectedId]) els[selectedId].className = 'dot sel';
-    if (selectedId != null) showPopup(selectedId);
-    else hidePopup();
+    selectedId = id;
+    Object.keys(pinEls).forEach(function (k) {
+      styleEl(pinEls[k], isNaN(Number(k)) ? k : Number(k));
+    });
+    var p = id != null ? pinData[id] : null;
+    if (!map || !ready) return;
+    if (!bubbles.length && clusterer) renderPins();
+    if (p && p.title) showPopup(p); else hidePopup();
+    showArea(p);
+    // Tanlangan usta tomon kamera silliq suriladi (masshtab kamida 13 bo'ladi).
+    if (p) {
+      // Doira sig'ishi uchun radiusga qarab masshtab tanlanadi (juda kichik bo'lib ketmaydi).
+      var z = p.radiusKm > 0 ? Math.max(9, Math.min(15, Math.round(15 - Math.log2(p.radiusKm * 2 + 1)))) : 13;
+      map.setLocation({ center: [p.lon, p.lat], zoom: p.radiusKm > 0 ? z : Math.max(map.zoom, 13), duration: 450 });
+    }
   }
 
-  function withTimeout(p, ms) {
-    return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, ms); })]);
-  }
-
-  async function init() {
-    document.body.className = isDark ? 'dark' : '';
+  (async function () {
+    if (!window.ymaps3) return;
     await ymaps3.ready;
-    C = ymaps3;
-    ymaps3.import.registerCdn('https://cdn.jsdelivr.net/npm/{package}', [
-      '@yandex/ymaps3-clusterer@0.0',
-      '@yandex/ymaps3-default-ui-theme@0.0'
-    ]);
-    // Ikki barmoq bilan burish (pinchRotate) va yaqinlashtirish (pinchZoom) yoqilgan.
-    map = new C.YMap(
-      document.getElementById('map'),
-      {
-        location: { center: [69.2401, 41.2995], zoom: 11 },
-        // Ikki barmoq: yaqinlashtirish, burish va yuqoriga/pastga surib qiyalatish (3D binolar qiyalatganda ko'rinadi).
-        behaviors: ['drag', 'pinchZoom', 'pinchRotate', 'panTilt', 'scrollZoom', 'dblClick', 'mouseTilt', 'mouseRotate'],
-        theme: isDark ? 'dark' : 'light'
-      },
-      [new C.YMapDefaultSchemeLayer({}), new C.YMapDefaultFeaturesLayer({})]
-    );
-    map.addChild(new C.YMapListener({
+    Clu = await ymaps3.import('@yandex/ymaps3-clusterer@0.0.1');
+    var m = ymaps3;
+    map = new m.YMap(document.getElementById('map'), {
+      location: { center: [69.2401, 41.2995], zoom: 11 },
+      // Ikki barmoq bilan burish (pinchRotate) va qiyalatish yoqilgan.
+      behaviors: ['drag', 'scrollZoom', 'pinchZoom', 'dblClick', 'pinchRotate', 'mouseRotate', 'mouseTilt', 'oneFingerZoom', 'magnifier']
+    });
+    schemeLayer = new m.YMapDefaultSchemeLayer({ theme: document.body.className === 'dark' ? 'dark' : 'light' });
+    map.addChild(schemeLayer);
+    map.addChild(new m.YMapDefaultFeaturesLayer({}));
+    map.addChild(new m.YMapListener({
       layer: 'any',
       onClick: function () {
-        if (Date.now() - markerAt < 400) return;
+        if (Date.now() - lastTap < 350) return;
         send({ id: null });
       },
-      onUpdate: function (e) {
-        curZoom = e.location.zoom;
-        if (meMarker) { placeNorth(); updateArrow(); }
+      onUpdate: function (p) {
+        onCamera(p.camera);
+        if (p.mapInAction) return;
         clearTimeout(zoomTimer);
-        zoomTimer = setTimeout(function () {
-          var z = Math.round(curZoom);
-          if (z !== lastZoomSent) { lastZoomSent = z; send({ zoom: z }); }
-        }, 250);
+        zoomTimer = setTimeout(function () { send({ zoom: Math.round(map.zoom) }); }, 250);
       }
     }));
-    try { Clust = await withTimeout(ymaps3.import('@yandex/ymaps3-clusterer'), 6000); } catch (e) { Clust = null; }
     ready = true;
     if (pending) { setData(pending); pending = null; }
-    lastZoomSent = Math.round(curZoom);
-    send({ ready: true, zoom: lastZoomSent });
-    // Zoom va kompas (shimolga qaytarish) tugmalari; yuklanmasa xarita baribir ishlaydi.
-    try {
-      var ui = await withTimeout(ymaps3.import('@yandex/ymaps3-default-ui-theme'), 8000);
-      map.addChild(new C.YMapControls({ position: 'right' }, [new ui.YMapZoomControl({}), new (ui.YMapRotateTiltControl || ui.YMapRotateControl)({})]));
-    } catch (e) {}
-  }
-  init();
+    send({ ready: true, zoom: Math.round(map.zoom) });
+  })();
 </script>
 </body>
 </html>`;
@@ -394,82 +371,43 @@ const HTML = `
 // `area` (tanlangan viloyat/tuman) berilsa, xarita nuqtalar bo'lmasa ham o'sha hududga markazlanadi:
 // { lat, lon, zoom } yoki koordinatasiz bo'lsa { query, fallback: { lat, lon, zoom } }.
 // `clusters` ([{ name, count, lat, lon, zoom }]) berilsa nuqtalar o'rniga hudud bo'yicha ustalar soni chiziladi;
-// `onZoom(n)` — xarita masshtabi o'zgarganda chaqiriladi.
-// `workArea` ({ lat, lon, km } | null) — tanlangan mutaxassisning ish hududi: shaffof doira chiziladi.
+// `onZoom(n)` — xarita masshtabi o'zgarganda chaqiriladi. `dark` — qorong'i xarita uslubi.
+// Nuqtadagi ixtiyoriy `title`/`sub` maydonlari tanlanganda nuqta ustida mini-popup bo'lib chiqadi.
 export default function WorkersMap({
   pins,
   clusters,
-  workArea,
   me,
-  showHeading = false,
-  dark = false,
-  openLabel,
-  onOpen,
   area,
   selectedId,
   onSelect,
   onZoom,
   fitKey,
+  dark,
   style,
 }) {
   const webRef = useRef(null);
   const [ready, setReady] = useState(false);
   const lastFit = useRef(null);
-  // Boshlang'ich mavzu va tugma yozuvi sahifa yuklanishidan oldin beriladi (HTML qayta yuklanmaydi).
-  const [initJs] = useState(
-    () =>
-      `window.__DARK=${dark ? 'true' : 'false'};window.__OPEN_LABEL=${JSON.stringify(openLabel ?? '')};true;`
-  );
-
-  // Ish hududi doirasi: primitivlar orqali — obyekt har renderda yangi bo'lib, doira qayta chizilib ketmasligi uchun.
-  const areaLat = workArea?.lat ?? null;
-  const areaLon = workArea?.lon ?? null;
-  const areaKm = workArea?.km ?? null;
+  // Koordinatasiz hudud (faqat nomi bor) — nomi bo'yicha geokodlanadi; topilgunga qadar zaxira nuqta ishlatiladi.
+  const [geo, setGeo] = useState(null);
+  const areaQuery = area && area.lat == null ? area.query : null;
   useEffect(() => {
-    if (!ready) return;
-    const payload =
-      areaLat != null && areaLon != null && areaKm > 0
-        ? JSON.stringify({ lat: areaLat, lon: areaLon, km: areaKm })
-        : 'null';
-    webRef.current?.injectJavaScript(`setWorkArea(${payload}); true;`);
-  }, [ready, areaLat, areaLon, areaKm]);
-
-  // Ilova mavzusi o'zgarsa xarita ham almashadi.
-  useEffect(() => {
-    if (!ready) return;
-    webRef.current?.injectJavaScript(`setTheme(${dark ? 'true' : 'false'}); true;`);
-  }, [ready, dark]);
-
-  // Qurilma yo'nalishi (kompas): faqat joylashuvga ruxsat berilgan va "men" nuqtasi GPS'dan olingan bo'lsa.
-  const hasMe = !!me;
-  useEffect(() => {
-    if (!ready || !hasMe || !showHeading) return;
+    if (!areaQuery) return;
     let cancelled = false;
-    let sub = null;
-    let last = null;
-    const web = webRef.current;
-    (async () => {
-      try {
-        const perm = await Location.getForegroundPermissionsAsync();
-        if (!perm.granted || cancelled) return;
-        const s = await Location.watchHeadingAsync((h) => {
-          const deg = h.trueHeading >= 0 ? h.trueHeading : h.magHeading;
-          if (deg == null || deg < 0) return;
-          // Kichik tebranishlar har safar xaritaga yuborilmasligi uchun 4° dan kam o'zgarish o'tkazib yuboriladi.
-          if (last != null && Math.abs(deg - last) < 4) return;
-          last = deg;
-          web?.injectJavaScript(`setHeading(${Math.round(deg)}); true;`);
-        });
-        if (cancelled) s.remove();
-        else sub = s;
-      } catch {}
-    })();
+    forwardGeocode(areaQuery).then((c) => {
+      if (!cancelled && c) setGeo({ query: areaQuery, lat: c.lat, lon: c.lng });
+    });
     return () => {
       cancelled = true;
-      sub?.remove();
-      web?.injectJavaScript('setHeading(null); true;');
     };
-  }, [ready, hasMe, showHeading]);
+  }, [areaQuery]);
+  const effArea = !area
+    ? null
+    : area.lat != null
+      ? { lat: area.lat, lon: area.lon, zoom: area.zoom }
+      : geo && geo.query === area.query
+        ? { lat: geo.lat, lon: geo.lon, zoom: area.fallback.zoom }
+        : { lat: area.fallback.lat, lon: area.fallback.lon, zoom: area.fallback.zoom };
 
   useEffect(() => {
     if (!ready) return;
@@ -479,14 +417,19 @@ export default function WorkersMap({
       pins,
       clusters: clusters ?? null,
       me: me ?? null,
-      area: area ?? null,
+      area: effArea,
       fit,
     });
     webRef.current?.injectJavaScript(`setData(${payload}); true;`);
     // Nuqtalar qayta chizilgach tanlangan nuqta rangi ham qayta qo'llanadi.
     webRef.current?.injectJavaScript(`select(${selectedId ?? 'null'}); true;`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- tanlov alohida effektda
-  }, [ready, pins, clusters, me, area, fitKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fit faqat fitKey o'zgarganda; effArea quyida
+  }, [ready, pins, clusters, me, effArea?.lat, effArea?.lon, effArea?.zoom, fitKey]);
+
+  useEffect(() => {
+    if (!ready) return;
+    webRef.current?.injectJavaScript(`setTheme(${dark ? 'true' : 'false'}); true;`);
+  }, [ready, dark]);
 
   useEffect(() => {
     if (!ready) return;
@@ -499,7 +442,6 @@ export default function WorkersMap({
       if (msg.ready) setReady(true);
       if (msg.zoom != null) onZoom?.(msg.zoom);
       if ('id' in msg) onSelect?.(msg.id);
-      if ('open' in msg) onOpen?.(msg.open);
     } catch {}
   };
 
@@ -509,7 +451,6 @@ export default function WorkersMap({
         ref={webRef}
         style={s.map}
         source={{ html: HTML, baseUrl: MAP_BASE_URL }}
-        injectedJavaScriptBeforeContentLoaded={initJs}
         onMessage={onMessage}
         javaScriptEnabled
         originWhitelist={['*']}

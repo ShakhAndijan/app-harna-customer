@@ -19,29 +19,62 @@ import { YANDEX_MAPS_API_KEY, YANDEX_GEOCODER_API_KEY } from '../constants/confi
 import { devLog } from '../utils/log';
 import { forwardGeocode, normalizeApostrophes } from '../utils/addressSearch';
 
-// Yandex API kaliti "harna.uz" domeniga bog'lab yaratilgan, lekin WebView xarita
+// Yandex Maps JS API v3 (burish/qiyalatish ikki barmoq bilan). Kalit "harna.uz" domeniga bog'lab yaratilgan, lekin WebView xarita
 // HTML'ni to'g'ridan-to'g'ri matn sifatida (haqiqiy domensiz) yuklaydi —
 // shuning uchun geokoder so'rovlari "scriptError" bilan rad etilishi mumkin.
 // `baseUrl` WebView'ga shu domenni "sahifa manbai" sifatida beradi.
 const MAP_BASE_URL = 'https://dev.harna.uz/';
 
-const buildMapHtml = (initLat, initLng) => `
+const buildMapHtml = (initLat, initLng, opts = {}) => `
 <!DOCTYPE html>
 <html>
 <head>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    html, body, #map { width:100%; height:100%; }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+    html, body, #map { width:100%; height:100%; overflow:hidden; }
+    .fab {
+      position:absolute; right:12px; width:42px; height:42px; border-radius:14px; background:#fff;
+      box-shadow:0 2px 10px rgba(0,0,0,.25); display:flex; align-items:center; justify-content:center;
+      z-index:10; font:700 24px/1 -apple-system, Roboto, sans-serif; color:#222; user-select:none;
+    }
+    #zin { top:50%; margin-top:-48px; }
+    #zout { top:50%; margin-top:2px; }
+    #t3d { top:${opts.top ?? 12}px; font-size:14px; }
+    #t3d.on { background:#e87a45; color:#fff; }
+    #compass { top:${(opts.top ?? 12) + 52}px; display:none; }
+    @keyframes pdrop { 0% { transform:translateY(-70px) scale(.7); opacity:0; } 55% { transform:translateY(6px) scale(1.04); opacity:1; }
+      75% { transform:translateY(-8px); } 100% { transform:translateY(0) scale(1); opacity:1; } }
+    @keyframes pring { 0% { transform:scale(.4); opacity:.9; } 100% { transform:scale(3.2); opacity:0; } }
+    .pinimg { animation:pdrop .55s cubic-bezier(.3,.7,.4,1); }
+    .pring { position:absolute; left:-9px; top:-9px; width:18px; height:18px; border-radius:50%;
+      background:rgba(232,122,69,.5); animation:pring 1.8s ease-out infinite; pointer-events:none; }
+    .plabel { position:absolute; left:0; bottom:96px; transform:translateX(-50%); background:#fff; color:#222;
+      width:max-content; max-width:230px; padding:7px 11px; border-radius:12px; box-shadow:0 3px 12px rgba(0,0,0,.3);
+      font:600 13px/1.3 -apple-system, Roboto, sans-serif; text-align:center; pointer-events:none;
+      animation:plrise .2s ease-out; }
+    .plabel::after { content:''; position:absolute; left:50%; bottom:-5px; margin-left:-5px; width:10px; height:10px;
+      background:inherit; transform:rotate(45deg); }
+    body.dark .plabel { background:#2a2a2e; color:#f2f2f2; }
+    @keyframes plrise { from { opacity:0; margin-bottom:-6px; } to { opacity:1; margin-bottom:0; } }
   </style>
   <script src="https://api-maps.yandex.ru/v3/?apikey=${YANDEX_MAPS_API_KEY}&lang=ru_RU"></script>
 </head>
 <body>
 <div id="map"></div>
+<div id="t3d" class="fab" onclick="toggle3d()">3D</div>
+<div id="compass" class="fab" onclick="resetNorth()">
+  <svg id="needle" width="26" height="26" viewBox="0 0 26 26">
+    <path d="M13 2 L18 13 L13 11 L8 13 Z" fill="#e53935"/>
+    <path d="M13 24 L18 13 L13 15 L8 13 Z" fill="#9e9e9e"/>
+  </svg>
+</div>
+<div id="zin" class="fab" onclick="zoomBy(1)">+</div>
+<div id="zout" class="fab" onclick="zoomBy(-1)">&minus;</div>
 <script>
-  var myMap = null;
-  var placemark = null;
-  var C = null; // ymaps3 asosiy sinflari
+  var map = null;
+  var marker = null;
+  var queue = [];
 
   // Belgi (SVG): yumaloq kvadratda odamcha, pastida tayoqcha va halqa. Halqaning markazi — tanlangan nuqta.
   var PIN_SVG =
@@ -49,139 +82,208 @@ const buildMapHtml = (initLat, initLng) => `
     '<defs><filter id="s" x="-30%" y="-30%" width="160%" height="160%">' +
     '<feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="#000" flood-opacity="0.28"/></filter></defs>' +
     '<g filter="url(#s)">' +
-    '<rect x="4" y="4" width="56" height="56" rx="17" fill="#ffffff"/>' +
-    '<rect x="8" y="8" width="48" height="48" rx="14" fill="#e87a45"/>' +
-    '<g stroke="#ffffff" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" fill="none">' +
-    '<path d="M31 29 L31 40"/><path d="M31 40 L26 49"/><path d="M31 40 L36 49"/>' +
-    '<path d="M31 32 L41 27"/><path d="M31 32 L23 37"/></g>' +
-    '<circle cx="31" cy="22" r="5" fill="#ffffff"/>' +
+    '<circle cx="32" cy="32" r="28" fill="#ffffff"/>' +
+    '<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6a06b"/><stop offset="1" stop-color="#e0622a"/></linearGradient></defs>' +
+    '<clipPath id="c"><circle cx="32" cy="32" r="24"/></clipPath><circle cx="32" cy="32" r="24" fill="url(#g)"/>' +
+    '<circle cx="32" cy="25" r="8.5" fill="#ffffff"/>' +
+    '<path d="M15.5 50 C15.5 40.5 22.5 36.5 32 36.5 C41.5 36.5 48.5 40.5 48.5 50 C48.5 54 46 56 32 56 C18 56 15.5 54 15.5 50 Z" fill="#ffffff" clip-path="url(#c)"/>' +
     '<rect x="30.5" y="60" width="3" height="16" rx="1.5" fill="#2b2b2b"/>' +
     '<circle cx="32" cy="80" r="7" fill="#ffffff" stroke="#2b2b2b" stroke-width="3.5"/>' +
     '</g></svg>';
   var PIN_HREF = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(PIN_SVG);
 
-  // Geokodlash (manzil matnini topish) endi shu WebView ichida emas,
-  // React Native tomonida (native fetch, CORS cheklovisiz) amalga oshiriladi —
-  // WebView'ning brauzer konteksti Yandex'ning standalone Geocoder API'siga
-  // cross-origin fetch yuborganda CORS bilan rad etilardi.
+  // Geokodlash (manzil matnini topish) shu WebView ichida emas, React Native tomonida
+  // (native fetch, CORS cheklovisiz) amalga oshiriladi.
   function post(lat, lng, source) {
     window.ReactNativeWebView.postMessage(JSON.stringify({
       lat: lat.toFixed(6), lng: lng.toFixed(6), source: source || 'user'
     }));
   }
 
-  // coords: [lat, lng]. v3 da koordinata tartibi [lng, lat]. Belgi DOM-marker: xarita burilganda ham tik turadi,
-  // halqa markazi (64x92 rasmda 32,80) tanlangan nuqtaga to'g'ri keladi.
-  function setPlacemark(coords) {
-    var lngLat = [coords[1], coords[0]];
-    if (placemark) {
-      placemark.update({ coordinates: lngLat });
-    } else {
-      var el = document.createElement('div');
-      el.style.cssText = 'transform:translate(-32px,-80px);pointer-events:none;width:64px;height:92px;';
-      var img = document.createElement('img');
-      img.src = PIN_HREF;
-      img.width = 64;
-      img.height = 92;
-      img.style.cssText = 'display:block;pointer-events:none;';
-      el.appendChild(img);
-      placemark = new C.YMapMarker({ coordinates: lngLat }, el);
-      myMap.addChild(placemark);
-    }
-  }
-
-  // Pin faqat manzil (ko'cha/uy) matni haqiqatan topilib, formaga yozilgach
-  // ko'rsatiladi — shuning uchun bu RN tomonidan aniq chaqiriladi, tegishli
-  // koordinata post qilingandan va reverse-geokodlash tugagandan keyin.
-  // Xarita (myMap) Yandex modullari yuklangach yaratiladi. Shundan oldin kelgan buyruqlar (masalan,
-  // joylashuv sahifa yuklanishi bilan topilsa) yo'qolmasligi uchun navbatga qo'yiladi va xarita
-  // yaratilgach tartib bilan bajariladi. (Oldin buyruq xarita yaratilmasdan bajarilib, xato berardi
-  // va xarita standart markazda — Toshkentda — qolardi.)
-  var queue = [];
+  // Xarita Yandex modullari yuklangach yaratiladi. Shundan oldin kelgan buyruqlar yo'qolmasligi uchun
+  // navbatga qo'yiladi va xarita yaratilgach tartib bilan bajariladi.
   function whenMap(fn) {
-    if (myMap) fn();
+    if (map) fn();
     else queue.push(fn);
   }
 
+  // Yandex JS API v3: koordinatalar [lng, lat] tartibida.
+  var pinLat = null, pinLng = null, pinImg = null, labelEl = null, pinWrap = null;
+  var areaKm = ${opts.radiusKm > 0 ? Number(opts.radiusKm) : 0};
+  var labelText = ${JSON.stringify(opts.label || '')};
+  var areaFeature = null, schemeLayer = null, is3d = false;
+  var darkNow = ${opts.dark ? 'true' : 'false'};
+  if (darkNow) document.body.className = 'dark';
+
+  // Ish hududi: pin atrofida radius (km) bo'yicha shaffof doira.
+  function updateArea() {
+    if (!map) return;
+    if (areaFeature) { map.removeChild(areaFeature); areaFeature = null; }
+    if (!(areaKm > 0) || pinLat == null) return;
+    var ring = [];
+    var dLat = areaKm / 111.32;
+    var dLon = areaKm / (111.32 * Math.cos(pinLat * Math.PI / 180));
+    for (var i = 0; i <= 64; i++) {
+      var a = (i / 64) * 2 * Math.PI;
+      ring.push([pinLng + dLon * Math.cos(a), pinLat + dLat * Math.sin(a)]);
+    }
+    areaFeature = new ymaps3.YMapFeature({
+      geometry: { type: 'Polygon', coordinates: [ring] },
+      style: { fill: 'rgba(232,122,69,0.16)', stroke: [{ color: '#e87a45', width: 2, dash: [6, 4] }] }
+    });
+    map.addChild(areaFeature);
+    // Doira butunlay ko'rinishi uchun kerak bo'lsa xarita uzoqlashtiriladi (yaqinlashtirilmaydi).
+    var px = Math.min(window.innerWidth, window.innerHeight) || 360;
+    var fitZ = Math.log2((156543.03 * Math.cos(pinLat * Math.PI / 180) * px) / (areaKm * 1000 * 2 * 1.2));
+    if (map.zoom > fitZ) map.setLocation({ center: [pinLng, pinLat], zoom: Math.max(3, fitZ), duration: 400 });
+  }
+
+  function setRadius(km) {
+    areaKm = Number(km) || 0;
+    whenMap(updateArea);
+  }
+
+  // Pin ustidagi manzil yozuvi.
+  function renderLabel() {
+    if (!pinWrap) return;
+    if (labelEl) { labelEl.remove(); labelEl = null; }
+    if (!labelText) return;
+    labelEl = document.createElement('div');
+    labelEl.className = 'plabel';
+    labelEl.textContent = labelText;
+    pinWrap.appendChild(labelEl);
+  }
+
+  function setLabel(t) {
+    labelText = t || '';
+    renderLabel();
+  }
+
+  function setTheme(dark) {
+    darkNow = !!dark;
+    document.body.className = darkNow ? 'dark' : '';
+    if (!map) return;
+    if (schemeLayer) map.removeChild(schemeLayer);
+    schemeLayer = new ymaps3.YMapDefaultSchemeLayer({ theme: darkNow ? 'dark' : 'light' });
+    map.addChild(schemeLayer);
+  }
+
+  // 3D rejim: xarita qiyalanadi, binolar hajmli ko'rinadi.
+  function toggle3d() {
+    if (!map) return;
+    is3d = !is3d;
+    document.getElementById('t3d').className = is3d ? 'fab on' : 'fab';
+    if (is3d) {
+      map.setLocation({ zoom: Math.max(map.zoom, 17), duration: 500 });
+      map.setCamera({ tilt: 0.9, duration: 500 });
+    } else {
+      map.setCamera({ tilt: 0, azimuth: 0, duration: 400 });
+    }
+  }
+
+  function setPlacemark(lat, lng) {
+    pinLat = lat; pinLng = lng;
+    if (marker) {
+      marker.update({ coordinates: [lng, lat] });
+      // Pin har safar yangi joyga "tushgandek" animatsiya qiladi.
+      if (pinImg) { pinImg.classList.remove('pinimg'); void pinImg.offsetWidth; pinImg.classList.add('pinimg'); }
+      updateArea();
+      return;
+    }
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'position:relative;width:0;height:0;';
+    var ring = document.createElement('div');
+    ring.className = 'pring';
+    wrap.appendChild(ring);
+    var img = document.createElement('img');
+    img.src = PIN_HREF;
+    img.className = 'pinimg';
+    img.style.cssText = 'position:absolute;left:-32px;top:-80px;width:64px;height:92px;pointer-events:none;';
+    wrap.appendChild(img);
+    pinImg = img;
+    pinWrap = wrap;
+    marker = new ymaps3.YMapMarker({ coordinates: [lng, lat], zIndex: 100 }, wrap);
+    map.addChild(marker);
+    renderLabel();
+    updateArea();
+  }
+
+  // Pin faqat manzil (ko'cha/uy) matni haqiqatan topilib, formaga yozilgach ko'rsatiladi —
+  // shuning uchun bu RN tomonidan aniq chaqiriladi.
   function dropPin(lat, lng) {
-    whenMap(function () { setPlacemark([lat, lng]); });
+    whenMap(function () { setPlacemark(lat, lng); });
   }
 
   function goTo(lat, lng, zoom, source) {
     whenMap(function () {
-      myMap.setLocation({ center: [lng, lat], zoom: zoom || 18 });
+      map.setLocation({ center: [lng, lat], zoom: zoom || 18, duration: 300 });
       post(lat, lng, source);
     });
   }
 
-  // Faqat ko'rinishni suradi — pin/placemark qo'ymaydi. Viloyat/tuman
-  // tanlangandagina xarita shu tomonga qaraydi, aniq nuqta hali belgilanmagan
-  // bo'ladi — foydalanuvchi bosgandagina (yoki "hozirgi joylashuv"da) pin chiqadi.
-  // Xarita hali tayyor bo'lmasa, tayyor bo'lgach nuqtaga o'tadi.
   function goToSafe(lat, lng, zoom) {
     goTo(lat, lng, zoom);
   }
 
+  // Faqat ko'rinishni suradi — pin qo'ymaydi.
   function panTo(lat, lng, zoom) {
-    whenMap(function () { myMap.setLocation({ center: [lng, lat], zoom: zoom || 10 }); });
+    whenMap(function () { map.setLocation({ center: [lng, lat], zoom: zoom || 10, duration: 300 }); });
   }
 
   function panToSafe(lat, lng, zoom) {
     panTo(lat, lng, zoom);
   }
 
-  // Ilova mavzusi o'zgarganda xarita ham almashadi (xarita yaratilmagan bo'lsa, yaratilganda window.__DARK o'qiladi).
-  function setTheme(dark) {
-    window.__DARK = !!dark;
-    if (myMap) myMap.update({ theme: dark ? 'dark' : 'light' });
+  function zoomBy(d) {
+    if (!map) return;
+    map.setLocation({ zoom: Math.max(2, Math.min(21, map.zoom + d)), duration: 200 });
   }
 
-  function withTimeout(p, ms) {
-    return Promise.race([p, new Promise(function (_, rej) { setTimeout(function () { rej(new Error('timeout')); }, ms); })]);
+  // Xarita burilgan bo'lsa shimol tomonga qaytaradi.
+  function resetNorth() {
+    if (!map) return;
+    map.setCamera({ azimuth: 0, tilt: 0, duration: 300 });
   }
 
-  async function init() {
+  function onCamera(camera) {
+    var az = (camera && camera.azimuth) || 0;
+    var tl = (camera && camera.tilt) || 0;
+    var box = document.getElementById('compass');
+    box.style.display = (Math.abs(az) > 0.02 || Math.abs(tl) > 0.02) ? 'flex' : 'none';
+    document.getElementById('needle').style.transform = 'rotate(' + (-az) + 'rad)';
+  }
+
+  (async function () {
+    if (!window.ymaps3) return;
     await ymaps3.ready;
-    C = ymaps3;
-    ymaps3.import.registerCdn('https://cdn.jsdelivr.net/npm/{package}', [
-      '@yandex/ymaps3-default-ui-theme@0.0'
-    ]);
-    // Ikki barmoq bilan burish (pinchRotate) va yaqinlashtirish (pinchZoom) yoqilgan.
-    myMap = new C.YMap(
-      document.getElementById('map'),
-      {
-        location: { center: [69.2401, 41.2995], zoom: 12 },
-        behaviors: ['drag', 'pinchZoom', 'pinchRotate', 'scrollZoom', 'dblClick'],
-        theme: window.__DARK ? 'dark' : 'light'
+    var m = ymaps3;
+    var hasInit = ${initLat && initLng ? 'true' : 'false'};
+    map = new m.YMap(document.getElementById('map'), {
+      location: {
+        center: hasInit ? [${initLng || 0}, ${initLat || 0}] : [69.2401, 41.2995],
+        zoom: hasInit ? 17 : 12
       },
-      [new C.YMapDefaultSchemeLayer({}), new C.YMapDefaultFeaturesLayer({})]
-    );
-
-    ${
-      initLat && initLng
-        ? `setPlacemark([${initLat}, ${initLng}]); myMap.setLocation({ center: [${initLng}, ${initLat}], zoom: 17 });`
-        : ''
-    }
-
-    myMap.addChild(new C.YMapListener({
+      // Ikki barmoq bilan burish (pinchRotate) va qiyalatish yoqilgan.
+      behaviors: ['drag', 'scrollZoom', 'pinchZoom', 'dblClick', 'pinchRotate', 'mouseRotate', 'mouseTilt', 'oneFingerZoom', 'magnifier']
+    });
+    schemeLayer = new m.YMapDefaultSchemeLayer({ theme: darkNow ? 'dark' : 'light' });
+    map.addChild(schemeLayer);
+    map.addChild(new m.YMapDefaultFeaturesLayer({}));
+    map.addChild(new m.YMapListener({
       layer: 'any',
       onClick: function (object, event) {
         var c = event && event.coordinates;
         if (c) post(c[1], c[0]);
-      }
+      },
+      onUpdate: function (p) { onCamera(p.camera); }
     }));
+
+    if (hasInit) setPlacemark(${initLat || 0}, ${initLng || 0});
 
     var pending = queue;
     queue = [];
     pending.forEach(function (fn) { fn(); });
-
-    // Zoom va kompas (shimolga qaytarish) tugmalari; yuklanmasa xarita baribir ishlaydi.
-    try {
-      var ui = await withTimeout(ymaps3.import('@yandex/ymaps3-default-ui-theme'), 8000);
-      myMap.addChild(new C.YMapControls({ position: 'right' }, [new ui.YMapZoomControl({}), new ui.YMapRotateControl({})]));
-    } catch (e) {}
-  }
-  init();
+  })();
 </script>
 </body>
 </html>`;
@@ -230,6 +332,8 @@ const LOCATE_MIN_GAIN = 15; // metr: xarita faqat aniqlik shuncha yaxshilansagin
  * Xaritaga bosib yoki "hozirgi joylashuv" tugmasi orqali koordinata tanlanadi,
  * kengaytirish tugmasi xaritani butun ekranga ochadi.
  */
+export { reverseGeocodeAddress };
+
 export default function LocationMapPicker({
   lat,
   lng,
@@ -263,24 +367,26 @@ export default function LocationMapPicker({
   permissionMessage,
   errorTitle,
   errorMessage,
+  // Qorong'i xarita; ish radiusi (km) — pin atrofida doira; pinLabel — pin ustidagi manzil yozuvi;
+  // controlsTop — o'ng tepadagi tugmalar uchun yuqori masofa (status bar ostida qolmasligi uchun).
+  // `dark` berilmasa ilova mavzusiga (qorong'i/yorug') qarab tanlanadi.
+  dark: darkProp,
+  radiusKm = 0,
+  pinLabel = '',
+  controlsTop = 12,
 }) {
   const webRef = useRef(null);
   const fullRef = useRef(null);
   const { theme } = useTheme();
-  const isDark = !!theme?.isDark;
-  // Sahifa yuklanishidan oldin mavzu beriladi; keyin o'zgarsa quyidagi effekt xaritalarga yuboradi.
-  const themeJs = `window.__DARK=${isDark ? 'true' : 'false'};true;`;
-  useEffect(() => {
-    const js = `setTheme(${isDark ? 'true' : 'false'}); true;`;
-    webRef.current?.injectJavaScript(js);
-    fullRef.current?.injectJavaScript(js);
-  }, [isDark]);
+  const dark = darkProp ?? !!theme?.isDark;
   const [locating, setLocating] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   // HTML faqat bir marta quriladi (boshlang'ich nuqta bilan). `lat/lng` o'zgarganda qayta qurilsa WebView
   // butun xaritani (Yandex skripti bilan) qayta yuklardi: bu paytda xarita standart markazda (Toshkent)
   // ko'rinib, joylashuv "boshqa joyda" chiqardi. Keyingi nuqtalar `goTo`/`dropPin` orqali yuboriladi.
-  const [mapHtml] = useState(() => buildMapHtml(lat, lng));
+  const [mapHtml] = useState(() =>
+    buildMapHtml(lat, lng, { dark, radiusKm, label: pinLabel, top: controlsTop })
+  );
 
   const autoLocated = useRef(false);
   const geocodeSeq = useRef(0);
@@ -446,6 +552,13 @@ export default function LocationMapPicker({
     };
   }, [geocodeQuery, geocodeZoom]);
 
+  // Mavzu, radius va manzil yozuvi o'zgarganda ochiq xaritalarga yuboriladi.
+  useEffect(() => {
+    const js = `setTheme(${dark ? 'true' : 'false'}); setRadius(${Number(radiusKm) || 0}); setLabel(${JSON.stringify(pinLabel || '')}); true;`;
+    webRef.current?.injectJavaScript(js);
+    fullRef.current?.injectJavaScript(js);
+  }, [dark, radiusKm, pinLabel]);
+
   // Foydalanuvchi taklif ro'yxatidan manzil tanlaganda — xarita shu joyga o'tadi va pin darhol qo'yiladi.
   useEffect(() => {
     if (!focusPoint) return;
@@ -472,7 +585,6 @@ export default function LocationMapPicker({
           ref={webRef}
           style={styles.map}
           source={{ html: mapHtml, baseUrl: MAP_BASE_URL }}
-          injectedJavaScriptBeforeContentLoaded={themeJs}
           onMessage={makeOnMessage(webRef)}
           onLoadEnd={handleLoadEnd}
           javaScriptEnabled
@@ -525,8 +637,10 @@ export default function LocationMapPicker({
           <WebView
             ref={fullRef}
             style={styles.fullMap}
-            source={{ html: buildMapHtml(lat, lng), baseUrl: MAP_BASE_URL }}
-            injectedJavaScriptBeforeContentLoaded={themeJs}
+            source={{
+              html: buildMapHtml(lat, lng, { dark, radiusKm, label: pinLabel, top: 12 }),
+              baseUrl: MAP_BASE_URL,
+            }}
             onMessage={makeOnMessage(fullRef)}
             javaScriptEnabled
             originWhitelist={['*']}

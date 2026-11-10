@@ -23,6 +23,14 @@ const SHEET_RATIO = 0.62;
 // Pastki suzuvchi menyu egallaydigan joy (menyu balandligi + chetdan masofa): tabda tugmalar uning ustida turadi.
 const TAB_BAR_SPACE = 86;
 const NO_FILTERS = {};
+const NO_TAB_FILTER = {
+  parentId: null,
+  subId: null,
+  sort: 'new',
+  price: { priceMin: null, priceMax: null, priced: null },
+  hasPhoto: false,
+  author: null,
+};
 
 // E'lonlarni Instagram Reels kabi to'liq ekranda ko'rish: yuqoriga/pastga surib keyingi e'longa o'tiladi.
 // Ro'yxat bosilgan e'lon ochilgan ro'yxat (`filters`/`saved`) bilan bir xil, shuning uchun keshdan darhol keladi.
@@ -43,22 +51,34 @@ export default function ListingReelsScreen({
   );
   const { t: tr } = useLanguage();
   const { tree } = useCategoryTreeQuery();
-  // Tabda yo'nalish chiplari filtrni belgilaydi; boshqa joylarda filtr tashqaridan keladi.
-  const [parentId, setParentId] = useState(null);
-  const [subId, setSubId] = useState(null);
+  // Tabdagi filtr: yo'nalish, saralash, narx, foto va mutaxassis; boshqa joylarda filtr tashqaridan keladi.
+  const [fv, setFv] = useState(NO_TAB_FILTER);
   const [filterOpen, setFilterOpen] = useState(false);
-  const categoryId = subId ?? parentId;
   const feedFilters = useMemo(
-    () => (tab ? { categoryId } : (filters ?? NO_FILTERS)),
-    [tab, categoryId, filters]
-  );
-  const feed = useListingsFeed(feedFilters, { saved });
-  const tools = useMemo(
     () =>
       tab
-        ? { onSearch, onFilter: () => setFilterOpen(true), filterActive: categoryId != null }
-        : null,
-    [tab, onSearch, categoryId]
+        ? {
+            categoryId: fv.subId ?? fv.parentId,
+            sort: fv.sort,
+            workerId: fv.author?.id ?? null,
+            hasPhoto: fv.hasPhoto,
+            ...fv.price,
+          }
+        : (filters ?? NO_FILTERS),
+    [tab, fv, filters]
+  );
+  const filterActive =
+    fv.parentId != null ||
+    fv.sort !== 'new' ||
+    fv.hasPhoto ||
+    !!fv.author ||
+    fv.price.priceMin != null ||
+    fv.price.priceMax != null ||
+    fv.price.priced != null;
+  const feed = useListingsFeed(feedFilters, { saved });
+  const tools = useMemo(
+    () => (tab ? { onSearch, onFilter: () => setFilterOpen(true), filterActive } : null),
+    [tab, onSearch, filterActive]
   );
   const ready = !feed.loading && !feed.error;
   // Ro'yxat kelguncha bitta e'lon kesh bilan yangilanib turishi uchun (layk/saqlash natijasi ko'rinsin).
@@ -147,20 +167,14 @@ export default function ListingReelsScreen({
       {tab && size && filterOpen && (
         <ReelFilterSheet
           tree={tree}
-          parentId={parentId}
-          subId={subId}
-          onPickParent={(id) => {
-            setParentId(id);
-            setSubId(null);
-          }}
-          onPickSub={setSubId}
-          onReset={() => {
-            setParentId(null);
-            setSubId(null);
+          value={fv}
+          onApply={(next) => {
+            setFv(next);
+            setFilterOpen(false);
           }}
           onClose={() => setFilterOpen(false)}
-          maxHeight={size.height * 0.7}
-          bottomInset={safeInsets.bottom}
+          maxHeight={size.height * 0.8}
+          bottomInset={insets.bottom}
         />
       )}
     </View>

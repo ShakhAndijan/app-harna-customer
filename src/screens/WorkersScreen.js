@@ -27,7 +27,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import LocationMapPicker from '../components/LocationMapPicker';
 import { useWorkersFeed } from '../queries/workers';
-import { getMapClusters, getWorkerById } from '../api/workers';
+import { getMapClusters } from '../api/workers';
 import { useRegions, useDistricts } from '../queries/reference';
 import { useCategoryTreeQuery } from '../queries/categories';
 import { ustaRoute, newOrderRoute } from '../navigation/params';
@@ -36,7 +36,6 @@ import SectionError from './zakazchi-main/components/SectionError';
 import WorkersFilterSheet from './workers/WorkersFilterSheet';
 import WorkersMap from './workers/WorkersMap';
 import { toListingCardShape } from './xizmatlar/utils';
-import { formatPrice } from './listings/utils';
 import { CATEGORY_ACCENT } from './xizmatlar/constants';
 
 const H_PAD = 20;
@@ -77,8 +76,6 @@ export default function WorkersScreen({ onBack }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [view, setView] = useState('list');
   const [coords, setCoords] = useState(null);
-  // "Men" nuqtasi haqiqiy GPS'dan olinganmi (shundagina yo'nalish strelkasi ko'rsatiladi), yoki xaritadan qo'lda tanlanganmi.
-  const [meFromGps, setMeFromGps] = useState(false);
   const [locating, setLocating] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   // Joylashuvni xaritadan qo'lda tanlash (ruxsat berilmaganda yoki aniqlab bo'lmaganda).
@@ -157,15 +154,16 @@ export default function WorkersScreen({ onBack }) {
           id: w.id,
           lat: w.latitude,
           lon: w.longitude,
-          name: w.name,
-          role: w.mainCategory || w.profession || '',
-          rating: w.rating > 0 ? w.rating.toFixed(1) : null,
-          price:
-            w.minPrice > 0
-              ? tr('workersList.mapPriceFrom', { price: formatPrice(w.minPrice) })
+          title: w.name,
+          sub: [w.rating > 0 ? '★ ' + w.rating.toFixed(1) : null, w.mainCategory || w.profession]
+            .filter(Boolean)
+            .join(' · '),
+          radiusKm:
+            w.workAreaMode === 'radius' && Number(w.workRadiusKm) > 0
+              ? Number(w.workRadiusKm)
               : null,
         })),
-    [feed.items, tr]
+    [feed.items]
   );
   // Xarita uzoqlashtirilganda (viloyat darajasi) alohida ustalar o'rniga hudud bo'yicha soni ko'rsatiladi.
   const [mapZoom, setMapZoom] = useState(null);
@@ -203,25 +201,6 @@ export default function WorkersScreen({ onBack }) {
   const selected = selectedId != null ? feed.items.find((w) => w.id === selectedId) : null;
   const hasMore = feed.total != null && feed.items.length < feed.total;
 
-  // Tanlangan mutaxassisning ish hududi (radius): ro'yxatda yo'q, shuning uchun tafsiloti so'raladi
-  // (mutaxassis sahifasi bilan bir xil kalit — keshdan olinadi).
-  const detailQuery = useQuery({
-    queryKey: ['worker', selectedId],
-    queryFn: () => getWorkerById(selectedId),
-    enabled: mapMode && selectedId != null,
-    staleTime: 5 * 60 * 1000,
-  });
-  const detail = detailQuery.data;
-  const workArea =
-    selected &&
-    selected.latitude != null &&
-    selected.longitude != null &&
-    detail?.id === selected.id &&
-    detail.workAreaMode === 'radius' &&
-    detail.workRadiusKm > 0
-      ? { lat: selected.latitude, lon: selected.longitude, km: Number(detail.workRadiusKm) }
-      : null;
-
   // "Yaqinimda": joylashuvga ruxsat so'raladi, aniqlangach ro'yxat masofa bo'yicha saralanadi.
   // Koordinata saqlanadi — qayta yoqilganda ruxsat qaytadan so'ralmaydi.
   const toggleNearby = async () => {
@@ -249,7 +228,6 @@ export default function WorkersScreen({ onBack }) {
         lat: Number(pos.coords.latitude.toFixed(4)),
         lon: Number(pos.coords.longitude.toFixed(4)),
       });
-      setMeFromGps(true);
       setSort('distance');
     } catch {
       appAlert(tr('workersList.nearby'), tr('workersList.nearbyError'), [
@@ -267,7 +245,6 @@ export default function WorkersScreen({ onBack }) {
         lat: Number(Number(picked.lat).toFixed(4)),
         lon: Number(Number(picked.lng).toFixed(4)),
       });
-      setMeFromGps(false);
       setSort('distance');
     }
     setPickerOpen(false);
@@ -462,14 +439,7 @@ export default function WorkersScreen({ onBack }) {
           clusters={clusters}
           onZoom={setMapZoom}
           me={coords}
-          workArea={workArea}
-          showHeading={meFromGps}
           dark={t.isDark}
-          openLabel={tr('workersList.mapOpen')}
-          onOpen={(id) => {
-            const w = feed.items.find((x) => x.id === id);
-            if (w) router.push(ustaRoute(w));
-          }}
           area={mapArea}
           selectedId={selected ? selected.id : null}
           onSelect={setSelectedId}

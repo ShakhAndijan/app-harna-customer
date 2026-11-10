@@ -24,8 +24,7 @@ import EmptyCard from './zakazchi-main/components/EmptyCard';
 import SectionError from './zakazchi-main/components/SectionError';
 import ListingCard from './listings/components/ListingCard';
 import ListingsFilters from './listings/components/ListingsFilters';
-import PriceFilterModal from './listings/components/PriceFilterModal';
-import AuthorFilterModal from './listings/components/AuthorFilterModal';
+import ReelFilterSheet from './listings/components/ReelFilterSheet';
 
 const H_PAD = 20;
 const GAP = 12;
@@ -42,7 +41,7 @@ export default function ListingsScreen({
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
   const { signedIn } = useAuth();
@@ -56,10 +55,9 @@ export default function ListingsScreen({
   const [sort, setSort] = useState('new');
   const [price, setPrice] = useState(NO_PRICE);
   const [hasPhoto, setHasPhoto] = useState(false);
-  const [priceOpen, setPriceOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   // "Mutaxassis" filtri: tanlangan muallif ({ id, name }).
   const [author, setAuthor] = useState(null);
-  const [authorOpen, setAuthorOpen] = useState(false);
 
   // Har harf uchun so'rov yuborilmasligi uchun qidiruv matni biroz kutib qo'llanadi.
   useEffect(() => {
@@ -87,35 +85,23 @@ export default function ListingsScreen({
   const title = workerName
     ? tr('listings.workerTitle', { name: workerName })
     : tr('listings.title');
-  const priceActive = price.priceMin != null || price.priceMax != null || price.priced != null;
-
-  const pickParent = (id) => {
-    setParentId(id);
-    setSubId(null);
-  };
+  const filtersActive =
+    parentId != null ||
+    sort !== 'new' ||
+    hasPhoto ||
+    !!author ||
+    price.priceMin != null ||
+    price.priceMax != null ||
+    price.priced != null;
 
   const header = (
     <View>
       <ListingsFilters
-        signedIn={signedIn && !workerId}
         saved={saved}
-        onSavedChange={setSaved}
         query={queryInput}
         onQueryChange={setQueryInput}
-        tree={tree}
-        parentId={parentId}
-        subId={subId}
-        onPickParent={pickParent}
-        onPickSub={setSubId}
-        sort={sort}
-        onSortChange={setSort}
-        priceActive={priceActive}
-        onOpenPrice={() => setPriceOpen(true)}
-        hasPhoto={hasPhoto}
-        onTogglePhoto={() => setHasPhoto((v) => !v)}
-        hideCategories={!!workerId}
-        authorName={author?.name}
-        onOpenAuthor={workerId ? undefined : () => setAuthorOpen(true)}
+        onOpenFilters={() => setFilterOpen(true)}
+        filtersActive={filtersActive}
       />
       {!feed.loading && !feed.error && feed.total > 0 && (
         <Text style={[s.count, { color: t.muted }]}>{tr('listings.count', { n: feed.total })}</Text>
@@ -165,6 +151,28 @@ export default function ListingsScreen({
         <Text style={[s.title, { color: t.text }]} numberOfLines={1}>
           {title}
         </Text>
+        {signedIn && !workerId && (
+          <TouchableOpacity
+            style={[
+              s.backBtn,
+              {
+                backgroundColor: saved ? t.orange : t.card,
+                borderColor: saved ? t.orange : t.border,
+              },
+            ]}
+            onPress={() => setSaved((v) => !v)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityState={{ selected: saved }}
+            accessibilityLabel={tr('listings.saved')}
+          >
+            <MaterialCommunityIcons
+              name={saved ? 'bookmark' : 'bookmark-outline'}
+              size={21}
+              color={saved ? '#fff' : t.text}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       <FlatList
@@ -206,25 +214,24 @@ export default function ListingsScreen({
         }
       />
 
-      <AuthorFilterModal
-        visible={authorOpen}
-        selected={author}
-        onClose={() => setAuthorOpen(false)}
-        onPick={(next) => {
-          setAuthor(next);
-          setAuthorOpen(false);
-        }}
-      />
-
-      <PriceFilterModal
-        visible={priceOpen}
-        value={price}
-        onClose={() => setPriceOpen(false)}
-        onApply={(next) => {
-          setPrice(next);
-          setPriceOpen(false);
-        }}
-      />
+      {filterOpen && (
+        <ReelFilterSheet
+          tree={tree}
+          value={{ parentId, subId, sort, price, hasPhoto, author }}
+          onApply={(next) => {
+            setParentId(next.parentId);
+            setSubId(next.subId);
+            setSort(next.sort);
+            setPrice(next.price);
+            setHasPhoto(next.hasPhoto);
+            setAuthor(next.author);
+            setFilterOpen(false);
+          }}
+          onClose={() => setFilterOpen(false)}
+          maxHeight={height * 0.8}
+          bottomInset={insets.bottom}
+        />
+      )}
     </SafeAreaView>
   );
 }
