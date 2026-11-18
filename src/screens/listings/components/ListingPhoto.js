@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '../../../context/ThemeContext';
 import { encodeImageUri } from '../utils';
 
-// E'lon surati; rasm yo'q yoki yuklanmasa — kulrang fonda belgi.
+// E'lon surati; rasm yo'q yoki yuklanmasa — kulrang fonda belgi. Video e'lon (`video`) muqovasiz
+// bo'lsa, standart qorong'i muqova va katta "play" belgisi ko'rsatiladi.
 export default function ListingPhoto({
   uri,
   style,
   iconSize = 28,
+  video = false,
   resizeMode = 'cover',
   children,
 }) {
@@ -25,6 +28,18 @@ export default function ListingPhoto({
           resizeMode={resizeMode}
           onError={() => setFailedUri(uri)}
         />
+      ) : video ? (
+        <>
+          <LinearGradient
+            colors={['#2a3140', '#12161e']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={s.playRing}>
+            <MaterialCommunityIcons name="play" size={iconSize + 6} color="#fff" />
+          </View>
+        </>
       ) : (
         <MaterialCommunityIcons name="image-outline" size={iconSize} color={t.faint} />
       )}
@@ -35,4 +50,15 @@ export default function ListingPhoto({
 
 const s = StyleSheet.create({
   box: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  playRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingLeft: 3,
+  },
 });

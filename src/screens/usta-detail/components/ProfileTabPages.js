@@ -1,10 +1,10 @@
-import { memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { memo, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useLanguage } from '../../../context/LanguageContext';
-import { useWorkerListings } from '../../../queries/listings';
+import { useListingsFeed } from '../../../queries/listings';
 import { reelsRoute } from '../../../navigation/params';
 import ListingPhoto from '../../listings/components/ListingPhoto';
 import { priceText } from '../../listings/utils';
@@ -62,6 +62,7 @@ function ListingTile({ listing, onOpen }) {
     >
       <ListingPhoto
         uri={listing.photos[0] ?? listing.videoPoster}
+        video={!!listing.videoUrl}
         style={{ width: '100%', aspectRatio: 1 }}
         iconSize={34}
       >
@@ -107,11 +108,24 @@ function ListingTile({ listing, onOpen }) {
   );
 }
 
-// "E'lonlar" tabi: ustaning e'lonlari, bir qatorda ikkitadan.
-function ListingsTab({ workerId }) {
+// Birinchi marta ko'rinadigan e'lonlar soni; ekran oxiriga yetilganda shuncha yana qo'shiladi.
+const LISTINGS_PAGE = 20;
+
+// "E'lonlar" tabi: ustaning e'lonlari, bir qatorda ikkitadan. Dastlab 20 ta, sahifa oxiriga yetilganda
+// (`endReached` obunasi orqali xabar keladi) yana 20 tadan yuklanadi.
+function ListingsTab({ workerId, endReached }) {
   const router = useRouter();
   const { t: tr } = useLanguage();
-  const { items, loading } = useWorkerListings(workerId, 50);
+  const { C } = useUstaStyles();
+  const { items, loading, hasMore, fetchingMore, loadMore } = useListingsFeed(
+    { workerId },
+    { enabled: !!workerId, pageSize: LISTINGS_PAGE }
+  );
+  const loadMoreRef = useRef(loadMore);
+  useEffect(() => {
+    loadMoreRef.current = loadMore;
+  });
+  useEffect(() => endReached?.subscribe(() => loadMoreRef.current()), [endReached]);
   if (!items.length) {
     return (
       <EmptyState
@@ -121,21 +135,28 @@ function ListingsTab({ workerId }) {
     );
   }
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        justifyContent: 'space-between',
-        rowGap: 12,
-      }}
-    >
-      {items.map((l) => (
-        <ListingTile
-          key={l.id}
-          listing={l}
-          onOpen={() => router.push(reelsRoute(l, { filters: { workerId } }))}
-        />
-      ))}
+    <View>
+      <View
+        style={{
+          flexDirection: 'row',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          rowGap: 12,
+        }}
+      >
+        {items.map((l) => (
+          <ListingTile
+            key={l.id}
+            listing={l}
+            onOpen={() => router.push(reelsRoute(l, { filters: { workerId } }))}
+          />
+        ))}
+      </View>
+      {(fetchingMore || hasMore) && (
+        <View style={{ paddingVertical: 18, alignItems: 'center', minHeight: 56 }}>
+          {fetchingMore && <ActivityIndicator color={C.orange} />}
+        </View>
+      )}
     </View>
   );
 }
@@ -269,7 +290,7 @@ function InfoTab({
 const ProfileTabPage = memo(function ProfileTabPage({ v, ...p }) {
   return (
     <View style={{ paddingTop: 14, paddingBottom: 8 }}>
-      {v === 'listings' ? <ListingsTab workerId={p.workerId} /> : null}
+      {v === 'listings' ? <ListingsTab workerId={p.workerId} endReached={p.endReached} /> : null}
       {v === 'works' ? (
         <WorksTab
           portfolio={p.portfolio}

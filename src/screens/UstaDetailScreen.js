@@ -16,6 +16,9 @@ import BottomCta from './usta-detail/components/BottomCta';
 
 const TAB_ORDER = ['listings', 'works', 'reviews', 'info'];
 
+// Sahifa oxiriga yaqinlashilganda (pastki chetdan shuncha piksel qolganda) keyingi e'lonlar so'raladi.
+const END_THRESHOLD = 500;
+
 // Usta profili ekrani (Instagram uslubida: bosh qism + 4 ta surib o'tiladigan tab).
 // Ma'lumot `hooks/useUstaDetail`, hisob-kitoblar `derive.js`, bo'limlar `usta-detail/components/` da.
 export default function UstaDetailScreen(props) {
@@ -68,6 +71,25 @@ function UstaDetailContent({
 
   const workerId = usta?.id ?? detail?.id;
 
+  // Skroll oxiriga yetilganini tab sahifalariga (E'lonlar) xabar qiluvchi oddiy obuna.
+  const [endReached] = useState(() => {
+    const listeners = new Set();
+    return {
+      subscribe: (fn) => {
+        listeners.add(fn);
+        return () => listeners.delete(fn);
+      },
+      emit: () => listeners.forEach((fn) => fn()),
+    };
+  });
+  const onScroll = useCallback(
+    ({ nativeEvent: e }) => {
+      const rest = e.contentSize.height - (e.contentOffset.y + e.layoutMeasurement.height);
+      if (rest < END_THRESHOLD) endReached.emit();
+    },
+    [endReached]
+  );
+
   // Barqaror havola: tab sahifasi (memo) surish paytida qayta chizilmasligi uchun.
   const selectWork = useCallback(
     (work) => onSelectWork?.({ ...work, worker: name, workerId }),
@@ -109,6 +131,8 @@ function UstaDetailContent({
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={200}
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 14) + 76 }}
       >
         <View style={st.pad}>
@@ -161,6 +185,7 @@ function UstaDetailContent({
                   certificates={certificates}
                   loadingCertificates={loadingCertificates}
                   onSelectWork={selectWork}
+                  endReached={endReached}
                 />
               )}
             />

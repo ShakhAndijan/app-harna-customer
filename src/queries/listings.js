@@ -29,13 +29,16 @@ const dedupe = (pages) => {
  * Cheksiz ro'yxat. `saved` bo'lsa filtrlar e'tiborga olinmaydi va mijozning saqlangan e'lonlari keladi.
  * @returns {{ items, total, loading, error, refreshing, fetchingMore, hasMore, loadMore, refetch }}
  */
-export function useListingsFeed(filters, { saved = false, enabled = true } = {}) {
+export function useListingsFeed(
+  filters,
+  { saved = false, enabled = true, pageSize = PAGE_SIZE } = {}
+) {
   const query = useInfiniteQuery({
-    queryKey: saved ? ['listings', 'saved'] : ['listings', 'browse', filters],
+    queryKey: saved ? ['listings', 'saved'] : ['listings', 'browse', filters, pageSize],
     queryFn: ({ pageParam }) =>
       saved
-        ? getFavoriteListingsPage({ page: pageParam, size: PAGE_SIZE })
-        : getListingsPage({ ...filters, page: pageParam, size: PAGE_SIZE }),
+        ? getFavoriteListingsPage({ page: pageParam, size: pageSize })
+        : getListingsPage({ ...filters, page: pageParam, size: pageSize }),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page < last.pages ? last.page + 1 : undefined),
     staleTime: 60 * 1000,
