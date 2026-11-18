@@ -20,7 +20,7 @@
     },
     "android": {
       "package": "uz.harna.customer",
-      "versionCode": 3,
+      "versionCode": 4,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
