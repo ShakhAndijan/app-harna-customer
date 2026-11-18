@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import Feather from '@expo/vector-icons/Feather';
 import { useLanguage } from '../context/LanguageContext';
 import PresenceBadge from './PresenceBadge';
+import useThumb from '../hooks/useThumb';
 
 const DEFAULT_COLORS = {
   card: '#142639',
@@ -23,6 +24,7 @@ export default function ListingCard({ listing, accent, onPress, onContact, color
   const { t } = useLanguage();
   const c = { ...DEFAULT_COLORS, ...colors };
   const [photoFailed, setPhotoFailed] = useState(false);
+  const { src: photoSrc, onError: thumbError } = useThumb(listing.profile_photo);
   const showPhoto = listing.profile_photo && !photoFailed;
   const meta = [listing.location, listing.postedAgo].filter(Boolean).join(' · ');
 
@@ -40,10 +42,12 @@ export default function ListingCard({ listing, accent, onPress, onContact, color
             <View style={[styles.avatar, { backgroundColor: listing.color }]}>
               {showPhoto ? (
                 <Image
-                  source={{ uri: listing.profile_photo }}
+                  source={{ uri: photoSrc }}
                   style={styles.avatarImg}
                   resizeMode="cover"
-                  onError={() => setPhotoFailed(true)}
+                  onError={() => {
+                    if (!thumbError()) setPhotoFailed(true);
+                  }}
                 />
               ) : (
                 <Text style={styles.avatarText}>{listing.initial}</Text>

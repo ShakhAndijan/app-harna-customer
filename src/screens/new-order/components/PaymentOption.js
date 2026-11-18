@@ -2,7 +2,16 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { common } from '../styles';
 
-export default function PaymentOption({ icon, iconBg, iconColor, title, subtitle, active, onPress, t }) {
+export default function PaymentOption({
+  icon,
+  iconBg,
+  iconColor,
+  title,
+  subtitle,
+  active,
+  onPress,
+  t,
+}) {
   return (
     <TouchableOpacity
       onPress={onPress}

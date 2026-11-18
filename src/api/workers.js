@@ -36,7 +36,7 @@ export function mapWorker(w) {
   return {
     ...mapWorkerExtras(w),
     id: w.id,
-    name: `${w.first_name} ${w.last_name}`,
+    name: [w.first_name, w.last_name].filter(Boolean).join(' '),
     initial: w.first_name?.[0]?.toUpperCase() ?? '?',
     color: AVATAR_COLORS[w.id % AVATAR_COLORS.length],
     profile_photo: w.profile_photo ?? null,
@@ -257,7 +257,7 @@ export function mapWorkerDetail(w) {
   return {
     ...mapWorkerExtras(w),
     id: w.id,
-    name: `${w.first_name} ${w.last_name}`,
+    name: [w.first_name, w.last_name].filter(Boolean).join(' '),
     initial: w.first_name?.[0]?.toUpperCase() ?? '?',
     color: AVATAR_COLORS[w.id % AVATAR_COLORS.length],
     profile_photo: w.profile_photo ?? null,

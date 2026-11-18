@@ -5,6 +5,20 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useUstaStyles } from '../styles';
 import { CARD_GAP, CARD_SLOT } from '../constants';
 import { encodeImageUri, formatDate } from '../utils';
+import useThumb from '../../../hooks/useThumb';
+
+// Karta rasmi: 800 px nusxa, u bo'lmasa rasmning o'zi.
+function WorkImage({ uri }) {
+  const { src, onError } = useThumb(uri);
+  return (
+    <Image
+      source={{ uri: encodeImageUri(src) }}
+      style={{ width: '100%', height: '100%' }}
+      resizeMode="cover"
+      onError={onError}
+    />
+  );
+}
 
 // Ustaning bajargan ishlari: o'zi aylanib turuvchi gorizontal karusel (2.2 soniyada bitta).
 export default function WorksCarousel({ works, onSelectWork }) {
@@ -43,11 +57,7 @@ export default function WorksCarousel({ works, onSelectWork }) {
           >
             <View style={[st.workImg, !item.photo && { backgroundColor: C.card3 }]}>
               {item.photo ? (
-                <Image
-                  source={{ uri: encodeImageUri(item.photo) }}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
+                <WorkImage uri={item.photo} />
               ) : (
                 <MaterialCommunityIcons name="image-outline" size={36} color={C.dim2} />
               )}

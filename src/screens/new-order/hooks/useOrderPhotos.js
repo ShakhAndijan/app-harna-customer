@@ -10,13 +10,15 @@ import { MAX_PHOTOS } from '../constants';
 export default function useOrderPhotos() {
   const { t: tr } = useLanguage();
   const [photos, setPhotos] = useState([]);
+  // "Yana chaqirish": eski buyurtmadan saqlab qolingan rasmlar (URL). Qayta yuklanmaydi; yangilar bilan jami MAX_PHOTOS.
+  const [keptPhotos, setKeptPhotos] = useState([]);
   // uri → picker mimeType va uri → yuklangan temp_key. Yuborish xato bilan
   // tugab qayta urinilganda allaqachon yuklangan rasmlar qayta yuklanmaydi.
   const photoMimeRef = useRef({});
   const photoKeysRef = useRef({});
 
   const pickPhotos = async () => {
-    const remaining = MAX_PHOTOS - photos.length;
+    const remaining = MAX_PHOTOS - photos.length - keptPhotos.length;
     if (remaining <= 0) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -33,7 +35,9 @@ export default function useOrderPhotos() {
       result.assets.forEach((a) => {
         photoMimeRef.current[a.uri] = a.mimeType;
       });
-      setPhotos((prev) => [...prev, ...result.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS));
+      setPhotos((prev) =>
+        [...prev, ...result.assets.map((a) => a.uri)].slice(0, MAX_PHOTOS - keptPhotos.length)
+      );
     }
   };
 
@@ -42,6 +46,8 @@ export default function useOrderPhotos() {
     delete photoKeysRef.current[uri];
     setPhotos((prev) => prev.filter((p) => p !== uri));
   };
+
+  const removeKept = (url) => setKeptPhotos((prev) => prev.filter((p) => p !== url));
 
   // Hali yuklanmagan rasmlarni yuklaydi va barcha rasmlarning temp_key'larini
   // (tanlangan tartibda) qaytaradi. Xato bo'lsa chaqiruvchiga uzatadi.
@@ -56,5 +62,5 @@ export default function useOrderPhotos() {
     return photos.map((uri) => photoKeysRef.current[uri]);
   };
 
-  return { photos, pickPhotos, removePhoto, uploadAll };
+  return { photos, pickPhotos, removePhoto, uploadAll, keptPhotos, setKeptPhotos, removeKept };
 }

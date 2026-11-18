@@ -1,9 +1,13 @@
 // Uzbek (lotin) tarjimalari. Kalitlar ekran/bo'lim nomlari bo'yicha guruhlangan.
 
 import { ORDER_FLOW } from './orderFlowTexts';
+import { CHAT_SYSTEM } from './chatSystemTexts';
+import { ORDER_SAFETY } from './orderSafetyTexts';
 
 export const uz = {
   orderFlow: ORDER_FLOW.uz,
+  chatSystem: CHAT_SYSTEM.uz,
+  ...ORDER_SAFETY.uz,
   common: {
     ok: 'OK',
     close: 'Yopish',
@@ -53,6 +57,26 @@ export const uz = {
       sendCodeFailed: 'Kod yuborishda xatolik yuz berdi',
       savePasswordFailed: 'Parolni saqlashda xatolik yuz berdi',
       googleFailed: 'Google orqali kirishda xatolik',
+    },
+    // Rozilik matni yangilanganda: kirishni davom ettirish uchun qayta rozilik so'raladi.
+    reconsent: {
+      title: 'Rozilik matni yangilandi',
+      message:
+        "Shaxsiy ma'lumotlarni qayta ishlash bo'yicha rozilik matni yangilandi. Davom etish uchun yangi matnga rozilik bering.",
+      agree: 'Roziman',
+    },
+    // Google kirishidan qaytgan xato sabablari (server `reason` → matn).
+    google: {
+      consent_required: "Davom etish uchun shaxsiy ma'lumotlarga rozilik belgisini qo'ying",
+      consent_outdated: "Rozilik matni yangilandi. Belgini qayta qo'yib, yana urinib ko'ring",
+      email_not_registered:
+        "Bu Google e-pochtasi hech bir hisobga bog'lanmagan. Avval telefon raqam va kod orqali kiring",
+      google_email_not_verified: 'Google e-pochtangiz tasdiqlanmagan',
+      user_inactive: 'Hisobingiz faol emas. Qo‘llab-quvvatlash xizmatiga murojaat qiling',
+      account_deleted:
+        "Bu hisob o'chirilgan. 30 kun ichida tiklash uchun qo'llab-quvvatlash xizmatiga yozing; shundan keyin qaytadan ro'yxatdan o'tish mumkin.",
+      google_unavailable:
+        'Google orqali kirish hozir ishlamayapti. Telefon raqam va kod orqali kiring',
     },
     phoneStep: {
       titleUsta: 'Ishni boshlaymizmi?',
@@ -481,10 +505,11 @@ export const uz = {
       priceTitle: 'Narx bo‘yicha',
       author: 'Mutaxassis',
       authorTitle: 'Mutaxassis bo‘yicha',
-      authorSearch: 'Nik, ism yoki telefon raqam',
+      authorSearch: 'Mutaxassis: ism yoki telefon',
       authorHint: 'Kamida 2 ta belgi yozing',
-      authorEmpty: 'Hech kim topilmadi',
-      authorCount: "{n} ta e'lon",
+      authorEmpty: 'Bunday mutaxassis topilmadi',
+      authorPhoneFull: 'Telefon raqamini to‘liq yozing: 90 123 45 67',
+      authorCount: '{n} ta',
       authorClear: 'Tozalash',
       from: 'Dan',
       to: 'Gacha',
@@ -540,6 +565,11 @@ export const uz = {
       delete: "O'chirish",
       deleteConfirm: "Izohni o'chirasizmi?",
       owner: 'Mutaxassis',
+      you: 'Siz',
+      edit: 'Tahrirlash',
+      editing: 'Izohni tahrirlash',
+      editError: "Izoh o'zgartirilmadi",
+      actions: 'Izoh amallari',
       loadError: 'Izohlar yuklanmadi',
       sendError: 'Izoh yuborilmadi',
       deleteError: "Izohni o'chirib bo'lmadi",
@@ -715,6 +745,7 @@ export const uz = {
       avatarDeleteFailed: "Rasmni o'chirib bo'lmadi, qayta urinib ko'ring",
     },
     stats: { orders: 'Buyurtma', favoriteMasters: 'Sevimli mutaxassis', yourRating: 'Bahoyingiz' },
+    groups: { activity: 'FAOLLIGIM', account: 'HISOB', support: 'YORDAM VA SOZLAMALAR' },
     incompleteBanner: {
       title: "Manzilingizni to'ldiring",
       subtitle: "Buyurtma berishni tezlashtirish uchun manzil qo'shing",
@@ -739,6 +770,7 @@ export const uz = {
       helpCenter: 'Yordam markazi',
     },
     logout: 'Hisobdan chiqish',
+    theme: 'Mavzu',
     footer: 'HARNA.uz · versiya 1.0.1',
   },
   articles: {
@@ -1050,6 +1082,7 @@ export const uz = {
     fallback: 'Yangi xabar',
     customer: {
       order: {
+        repeat_reminder: 'Xuddi shunday ish kerakmi? Ustani yana chaqiring',
         accepted: 'Buyurtmangizni mutaxassis qabul qildi',
         cancelled: 'Buyurtmangiz bekor qilindi',
         completed: 'Buyurtmangiz yakunlandi — mutaxassisni baholang',
@@ -1113,6 +1146,10 @@ export const uz = {
     review: {
       received: 'Sizga yangi sharh qoldirildi',
     },
+    verification: {
+      manual_closed:
+        'Shaxsni hujjat rasmi orqali tasdiqlash to‘xtatildi: arizangiz yopildi. Endi shaxs faqat MyID orqali tasdiqlanadi.',
+    },
     support: {
       answered: 'Murojaatingizga javob berildi',
     },
@@ -1160,6 +1197,8 @@ export const uz = {
     tabList: 'Xabarlar',
     openOrder: 'Buyurtmani ochish',
     openListing: "E'lonni ochish",
+    openAgain: 'Qayta buyurtma berish',
+    openVerify: 'Tasdiqlashni ochish',
     openAnswer: "Javobni ko'rish",
     close: 'Yopish',
     tabSettings: 'Sozlamalar',
@@ -1222,35 +1261,44 @@ export const uz = {
       subtitle:
         'Ismingiz yonida tasdiqlangan belgisi paydo bo‘ladi — mutaxassislar sizga ko‘proq ishonadi.',
       status: {
-        not_submitted: 'Yuborilmagan',
-        pending: 'Tekshirilmoqda',
+        not_submitted: 'Tasdiqlanmagan',
+        pending: 'Jarayonda',
         approved: 'Tasdiqlangan',
-        rejected: 'Rad etilgan',
+        rejected: 'Tasdiqlanmadi',
       },
-      needTitle: 'Nima kerak bo‘ladi',
-      needDoc: 'Pasport yoki ID karta rasmi',
-      needDocHint: 'Yorug‘ joyda, matn aniq ko‘rinsin',
-      needSelfie: 'Hujjatni ushlab turgan selfie',
-      needSelfieHint: 'Yuzingiz va hujjat birga ko‘rinsin',
       privacyNote: 'Ma’lumotlaringiz faqat tasdiqlash uchun ishlatiladi va ommaga ko‘rsatilmaydi.',
-      autoTitle: 'MyID orqali tezkor tasdiqlash',
+      autoTitle: 'MyID orqali tasdiqlash',
       autoBody:
-        'MyID hisobingiz bo‘lsa, bir necha soniyada tasdiqlanadi — admin tekshiruvini kutish shart emas.',
+        'Shaxsingiz MyID orqali bir necha soniyada tasdiqlanadi. Hujjat yoki selfie yuborish shart emas.',
       autoStart: 'MyID bilan davom etish',
-      autoOr: 'yoki hujjatni qo‘lda yuboring',
-      addPhoto: 'Rasm qo‘shish',
-      slotDocument: 'Hujjat rasmi',
-      slotSelfie: 'Hujjat bilan selfie',
-      slotExtra: 'Qo‘shimcha',
-      consentTitle: 'Ma’lumotlarimni tekshirishga roziman',
-      consentBody:
-        'Hujjat va selfie faqat shaxsingizni tasdiqlash uchun ishlatiladi, yopiq saqlanadi va ochiq profilingizda ko‘rinmaydi — faqat “tasdiqlangan” belgisi chiqadi.',
-      send: 'Hujjatni yuborish',
-      resend: 'Qayta yuborish',
-      needMore: 'Kamida {count} ta rasm kerak',
-      tooLarge: 'Fayl 10 MB dan katta bo‘lmasin',
-      submitted: 'Hujjat yuborildi — tekshiruvni kuting',
-      sendFailed: 'Yuborib bo‘lmadi, qayta urinib ko‘ring',
+      steps: {
+        title: 'Qanday ishlaydi',
+        one: 'MyID sahifasiga o‘ting',
+        oneHint: 'Xavfsiz sahifa brauzerda ochiladi',
+        two: 'Shaxsingizni tasdiqlang',
+        twoHint: 'MyID orqali bir necha soniyada',
+        three: 'Belgi paydo bo‘ladi',
+        threeHint: 'Ismingiz yonida “tasdiqlangan” belgisi chiqadi',
+      },
+      approvedBody: 'Ismingiz yonida “tasdiqlangan” belgisi ko‘rinadi.',
+      soon: {
+        title: 'MyID orqali tasdiqlash tez orada',
+        body: 'Shaxs faqat MyID orqali tasdiqlanadi. Ulanish ishga tushishi bilan shu yerda tugma paydo bo‘ladi.',
+      },
+      reopen: 'MyID’ni qaytadan ochish',
+      pendingHint:
+        'MyID’da tasdiqlashni yakunlang. Sahifani yopib qo‘ygan bo‘lsangiz, qaytadan ochishingiz mumkin.',
+      verifiedNow: 'Shaxsingiz tasdiqlandi',
+      startFailed: 'Tasdiqlashni boshlab bo‘lmadi, qayta urinib ko‘ring',
+      inProgress: 'Tasdiqlash allaqachon boshlangan. Natijani kuting.',
+      providerUnavailable: 'MyID orqali tasdiqlash tez orada ishga tushadi.',
+      alreadyVerified: 'Shaxsingiz allaqachon tasdiqlangan.',
+      closed: 'Hujjatni qo‘lda yuborish to‘xtatilgan. Tasdiqlash faqat MyID orqali.',
+      reasons: {
+        pinfl_already_used: 'Bu JSHSHIR bilan boshqa hisob allaqachon tasdiqlangan.',
+        verification_state_expired: 'MyID’dagi vaqt tugadi — qaytadan boshlang.',
+        default: 'Tasdiqlashni yakunlab bo‘lmadi',
+      },
     },
     telegram: {
       title: 'Telegram',
@@ -1301,6 +1349,39 @@ export const uz = {
       'Noy',
       'Dek',
     ],
+  },
+  // Ustaning qo'shimcha ish taklifi (mijoz roziligi bilan narxga qo'shiladi).
+  extraWork: {
+    chatLabel: "Qo'shimcha ish taklifi",
+    askTitle: "Usta qo'shimcha ish taklif qildi",
+    approve: 'Roziman',
+    decline: 'Rad etaman',
+    approveTitle: "Qo'shimcha ishga rozimisiz?",
+    approveConfirm: "Jami narx {total} bo'ladi",
+    deadline: "{when} gacha javob bering. Javob bermasangiz, taklif bekor bo'ladi.",
+    late: "Javob berish muddati tugadi — taklif bekor bo'ladi.",
+    approved: "Qo'shimcha ish tasdiqlandi — narxga qo'shildi",
+    declined: "Taklif rad etildi — narx o'zgarmadi",
+    listTitle: "Qo'shimcha ishlar",
+    total: "Kelishilgan {agreed} + qo'shimcha {extras} so'm",
+    status: {
+      pending: '{when} gacha javobingiz kutilmoqda',
+      approved: "Rozi bo'ldingiz",
+      declined: 'Rad etdingiz',
+      lapsed: "Javob bo'lmadi — taklif bekor bo'ldi",
+      closed: 'Yopildi',
+    },
+  },
+  // Buyurtma vaqt chizig'i ("Tarix"): har bir bosqich qachon bo'lgani.
+  orderHistory: {
+    title: 'Tarix',
+    created: 'Yaratilgan',
+    listing: "E'lon",
+    accepted: 'Qabul qilingan',
+    agreed: 'Kelishilgan',
+    workDone: 'Usta bajarildi dedi',
+    completed: 'Bajarilgan',
+    cancelled: 'Bekor qilingan',
   },
   orderDetail: {
     stepSent: 'Berildi',
@@ -1381,7 +1462,14 @@ export const uz = {
     payChoose: "To'lov tizimini tanlang",
     payOpened: "To'lov oynasi ochildi. To'lovdan keyin holat yangilanadi.",
     payFailed: "To'lovni boshlab bo'lmadi",
-    payProcessing: "To'lov tekshirilmoqda",
+    payProcessing: 'To‘lov amalga oshirilmoqda',
+    payRefunded: 'To‘lov bekor qilindi — pul kartangizga qaytariladi',
+    payInProgress:
+      'To‘lov hozir amalga oshirilmoqda — bir necha daqiqadan keyin qayta urinib ko‘ring.',
+    payOff: 'Onlayn to‘lov hozircha o‘chirilgan. To‘lovni naqd amalga oshirasiz.',
+    payNotConnected: 'Onlayn to‘lov hozircha ulanmagan.',
+    payBelowMin: 'Bitta to‘lov kamida {min} so‘m bo‘lishi kerak.',
+    payAboveMax: 'Bitta to‘lov {max} so‘mdan oshmasligi kerak.',
     timesTitle: 'Muddatlar',
     agreedAt: 'Kelishilgan',
     completedAt: 'Yakunlangan',
@@ -1451,6 +1539,8 @@ export const uz = {
     errorSave: "Manzilni saqlab bo'lmadi",
   },
   newOrder: {
+    againFailedTitle: 'Qayta buyurtma',
+    againFailed: 'Buyurtma ma’lumotlarini yuklab bo‘lmadi. Formani qo‘lda to‘ldiring.',
     headerTitle: 'Yangi buyurtma',
     headerSubtitle:
       "Kerakli xizmatni tanlang, tafsilotlarni yozing — mutaxassislar sizga bog'lanadi.",
@@ -1967,7 +2057,6 @@ export const uz = {
     agreeConfirmText: 'Shundan keyin ish boshlanadi.',
     chatPlaceholder: 'Xabar yozing…',
     counterShort: 'Boshqa narx',
-    sys: { order_accepted: 'Mutaxassis buyurtmani qabul qildi' },
     offerBubble: 'Narx taklifi',
     chatEmpty: "Hali xabar yo'q",
     chatClosed: 'Suhbat yopilgan',

@@ -1,6 +1,5 @@
 import { ENDPOINTS } from '../constants/config';
 import { request } from '../utils/request';
-import { uploadImageToPresignedUrl } from './auth';
 
 // ─── Mijoz statusi (Bronza / Kumush / Oltin) ─────────────────────
 
@@ -37,27 +36,19 @@ export const getIdentityStatus = () =>
   request(ENDPOINTS.VERIFY_STATUS, { fallbackMessage: 'Tasdiqlash holati yuklanmadi' });
 
 /**
- * Hujjat va selfie rasmlarini presigned URL orqali yuklab, administratorga tekshiruvga yuboradi.
- * @param {{ uri: string, mimeType?: string }[]} files kamida 2 ta (hujjat, selfie), ko'pi bilan 5 ta
+ * MyID orqali tasdiqlashni boshlaydi (qo'lda hujjat yuborish yopilgan: 410 `manual_verification_closed`).
+ * `return_to: 'app'` bo'lsa MyID tugagach server `harna://cabinet/verify?status=verified` (yoki
+ * `?status=rejected|error&reason=...`) ga qaytaradi. Javob: `{ redirect_url, verification_id }`.
+ * Xato kodlari: 409 `identity_already_verified` / `verification_already_in_progress`,
+ * 503 `verification_provider_unavailable`, 422 `invalid_request_data`.
+ * @returns {Promise<{ redirect_url: string }>}
  */
-export async function submitIdentityDocuments(files) {
-  const tempKeys = [];
-  for (const file of files) {
-    const contentType = file.mimeType || 'image/jpeg';
-    const { upload_url, temp_key } = await request(ENDPOINTS.VERIFY_UPLOAD_URL, {
-      method: 'POST',
-      body: { content_type: contentType },
-      fallbackMessage: 'Rasm yuklash manzili olinmadi',
-    });
-    await uploadImageToPresignedUrl(upload_url, file.uri, contentType);
-    tempKeys.push(temp_key);
-  }
-  return request(ENDPOINTS.VERIFY_SUBMIT, {
+export const startIdentityProvider = (provider = 'myid') =>
+  request(ENDPOINTS.VERIFY_START, {
     method: 'POST',
-    body: { temp_keys: tempKeys },
-    fallbackMessage: 'Hujjat yuborilmadi',
+    body: { provider, return_to: 'app' },
+    fallbackMessage: 'Tasdiqlashni boshlab bo‘lmadi',
   });
-}
 
 // ─── Email tasdiqlash ────────────────────────────────────────────
 

@@ -90,7 +90,11 @@ export const reelsRoute = (listing, { filters, saved } = {}) => ({
   },
 });
 
-export const newOrderRoute = (worker) => ({
+// `againFrom` — "Yana chaqirish": forma shu yakunlangan buyurtma ma'lumotlari bilan ochiladi.
+export const newOrderRoute = (worker, againFrom) => ({
   pathname: '/new-order',
-  params: { worker: encodeParam(worker) },
+  params: {
+    worker: encodeParam(worker),
+    ...(againFrom != null ? { again: String(againFrom) } : {}),
+  },
 });

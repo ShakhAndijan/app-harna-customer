@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { categoriesQuery } from '../../../queries/categories';
 import { getFavorites } from '../../../api/workers';
 import { markStartup } from '../../../utils/startup';
-import { topWorkersQuery, homeStatsQuery, homeReviewsQuery } from '../../../queries/home';
+import { topWorkersQuery, homeStatsQuery } from '../../../queries/home';
 import { getRecentOrders } from '../../../api/orders';
 
 // Mijozning shaxsiy xulosasi: faol buyurtmalar va qayta buyurtma berish mumkin bo'lgan
@@ -45,7 +45,6 @@ export default function useHomeData() {
     queryFn: () => getFavorites({ page: 1, size: 10 }),
   });
   const stats = useQuery(homeStatsQuery);
-  const reviews = useQuery(homeReviewsQuery);
   // Faol buyurtmalar tez o'zgaradi: har safar bosh sahifa ochilganda/qaytilganda yangilanadi.
   const summary = useQuery({
     queryKey: ['home', 'summary'],
@@ -53,7 +52,7 @@ export default function useHomeData() {
     staleTime: 0,
   });
 
-  const queries = { categories, workers, favorites, stats, reviews, summary };
+  const queries = { categories, workers, favorites, stats, summary };
 
   // Pull-to-refresh: kesh yangi bo'lsa ham hamma bo'lim qayta olinadi; tanlangan xizmat (kategoriya)
   // bekor qilinadi va "Eng zo'r ustalar" umumiy ro'yxatga qaytadi.
@@ -61,7 +60,7 @@ export default function useHomeData() {
     setRefreshing(true);
     const wasSelected = selectedCategoryId !== null;
     setSelectedCategoryId(null);
-    const jobs = [categories, favorites, stats, reviews, summary].map((q) => q.refetch());
+    const jobs = [categories, favorites, stats, summary].map((q) => q.refetch());
     jobs.push(
       wasSelected
         ? queryClient.refetchQueries({ queryKey: topWorkersQuery(null).queryKey, exact: true })
@@ -77,7 +76,6 @@ export default function useHomeData() {
     workers.refetch,
     favorites.refetch,
     stats.refetch,
-    reviews.refetch,
     summary.refetch,
   ]);
 
@@ -89,7 +87,6 @@ export default function useHomeData() {
     workers: toSection(workers),
     favorites: toSection(favorites),
     stats: toSection(stats),
-    reviews: toSection(reviews),
     summary: toSection(summary),
   };
   const all = Object.values(sections);

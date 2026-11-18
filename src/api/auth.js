@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -142,31 +143,75 @@ export async function verifyResetPasswordOtp(phone, code, newPassword) {
   );
 }
 
-export async function googleLogin(actorType = 'customer') {
-  const redirectUri = Linking.createURL('auth/callback');
-  const loginUrl =
-    `${ENDPOINTS.AUTH_GOOGLE_LOGIN}?actor_type=${actorType}` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+// Brauzerdan ilovaga qaytish manzilini faqat server belgilaydi (platformaning mijoz sxemasi `harna`):
+// `redirect_uri` kabi parametrlar e'tiborsiz qoldiriladi. Shuning uchun u tayyor satr, `Linking.createURL`
+// bilan yasalmaydi (u ro'yxatdagi birinchi sxemani, ya'ni mobile-app-afish:// ni beradi).
+export const GOOGLE_RETURN_URL = 'harna://auth/google';
+
+// Google kirishi tugagach server `harna://auth/google?status=...` ga qaytaradi. `status=denied|error`
+// bo'lganda `reason` xato kodiga o'giriladi (`GoogleLoginError.code`), ekran shunga mos matn ko'rsatadi:
+//   cancelled | consent_required | consent_outdated | email_not_registered | google_email_not_verified |
+//   user_inactive | account_deleted | google_unavailable | failed
+export class GoogleLoginError extends Error {
+  constructor(code, reason) {
+    super(code);
+    this.code = code;
+    this.reason = reason ?? null;
+  }
+}
+
+const GOOGLE_REASON_CODES = new Set([
+  'consent_required',
+  'consent_outdated',
+  'email_not_registered',
+  'google_email_not_verified',
+  'user_inactive',
+  'account_deleted',
+]);
+
+function googleReasonCode(reason) {
+  if (!reason) return 'failed';
+  if (GOOGLE_REASON_CODES.has(reason)) return reason;
+  // Foydalanuvchi Google oynasida "Rad etish" ni bosgan.
+  if (reason === 'access_denied') return 'cancelled';
+  // Serverning Google bilan almashuvi xatosi (masalan invalid_client — server sozlamasi).
+  if (reason.startsWith('google_token_exchange_failed')) return 'google_unavailable';
+  return 'failed';
+}
+
+/**
+ * Google orqali kirish. Shaxsiy ma'lumotlarga rozilik belgisi boshlash manzilida yuboriladi
+ * (`consent_version`): belgisiz server Google sahifasini ochmasdan `consent_required` bilan qaytaradi.
+ */
+export async function googleLogin(actorType = 'customer', consentVersion) {
+  const params = [`actor_type=${actorType}`];
+  if (consentVersion) params.push(`consent_version=${encodeURIComponent(consentVersion)}`);
+  if (Platform.OS === 'android' || Platform.OS === 'ios') params.push(`client=${Platform.OS}`);
+  const loginUrl = `${ENDPOINTS.AUTH_GOOGLE_LOGIN}?${params.join('&')}`;
 
   logReq('googleLogin');
-  const result = await WebBrowser.openAuthSessionAsync(loginUrl, redirectUri);
+  const result = await WebBrowser.openAuthSessionAsync(loginUrl, GOOGLE_RETURN_URL);
 
   if (result.type !== 'success') {
     logErr('googleLogin', 'cancelled');
-    throw new Error('cancelled');
+    throw new GoogleLoginError('cancelled');
   }
 
-  const parsed = Linking.parse(result.url);
-  const params = parsed.queryParams ?? {};
-  const token = params.token || params.access_token;
+  const query = Linking.parse(result.url).queryParams ?? {};
+  const token = query.access_token || query.token;
 
+  if (query.status && query.status !== 'success') {
+    const code = googleReasonCode(query.reason);
+    logErr('googleLogin', `${query.status}: ${query.reason ?? ''}`);
+    throw new GoogleLoginError(code, query.reason);
+  }
   if (!token) {
     logErr('googleLogin', 'token topilmadi');
-    throw new Error('Tokenni olishda xatolik');
+    throw new GoogleLoginError('failed');
   }
 
-  logOk('googleLogin', { hasToken: !!token, hasRefreshToken: !!params.refresh_token });
-  return { token, refreshToken: params.refresh_token };
+  logOk('googleLogin', { hasToken: !!token, hasRefreshToken: !!query.refresh_token });
+  return { token, refreshToken: query.refresh_token };
 }
 
 /**

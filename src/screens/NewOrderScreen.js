@@ -14,11 +14,12 @@ import { useAuth } from '../context/AuthContext';
 import LoginScreen from './LoginScreen';
 import { useAllCategoriesQuery, useCategoryTreeQuery } from '../queries/categories';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createOrder } from '../api/orders';
+import { createOrder, getOrderAgain, getOrderBrief } from '../api/orders';
 import { getCustomerMe } from '../api/user';
 import { primaryFromMe } from './addresses/hooks/useAddresses';
 import { stripCountryCode } from './new-order/utils';
 import buildOrderPayload from './new-order/buildOrderPayload';
+import { MAX_PHOTOS } from './new-order/constants';
 import CategoryPickerModal from './new-order/components/CategoryPickerModal';
 import AddressModal from './new-order/components/AddressModal';
 import ReviewModal from './new-order/components/ReviewModal';
@@ -49,7 +50,15 @@ import { trackEvent } from '../utils/analytics';
 // pastki menyu uchun joy qoldirilmaydi.
 // `onRestartDraft` berilsa, tiklangan qoralama ustida "Yangidan boshlash" tugmasi chiqadi (u formani
 // bo'sh holda qayta ochadi).
-export default function NewOrderScreen({ onOrderCreated, targetWorker, onBack, onRestartDraft }) {
+// `againFrom` — "Yana chaqirish": yakunlangan buyurtma id'si; forma shu buyurtma ma'lumotlari (tavsif,
+// manzil, rasmlar) bilan to'ldiriladi (GET /orders/{id}/again). Narx, sana va telefon bo'sh qoladi.
+export default function NewOrderScreen({
+  onOrderCreated,
+  targetWorker,
+  onBack,
+  onRestartDraft,
+  againFrom,
+}) {
   const tabSpace = useTabBarSpace(110);
   const insets = useSafeAreaInsets();
   const bottomSpace = onBack ? 32 + insets.bottom : tabSpace;
@@ -113,7 +122,8 @@ export default function NewOrderScreen({ onOrderCreated, targetWorker, onBack, o
     if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
   };
 
-  const { photos, pickPhotos, removePhoto, uploadAll } = useOrderPhotos();
+  const { photos, pickPhotos, removePhoto, uploadAll, keptPhotos, setKeptPhotos, removeKept } =
+    useOrderPhotos();
   const {
     regions,
     regionId,
@@ -128,6 +138,55 @@ export default function NewOrderScreen({ onOrderCreated, targetWorker, onBack, o
   const { categories } = useAllCategoriesQuery();
   const { tree: categoryTree } = useCategoryTreeQuery();
   const queryClient = useQueryClient();
+
+  // "Yana chaqirish": forma eski buyurtma ma'lumotlari bilan bir marta to'ldiriladi. Tavsif allaqachon
+  // yozilgan bo'lsa tegilmaydi. Bildirishnomadan (usta berilmagan) ochilganda usta buyurtmadan olinadi.
+  const descriptionRef = useRef('');
+  useEffect(() => {
+    descriptionRef.current = description;
+  }, [description]);
+  const againAppliedRef = useRef(false);
+  useEffect(() => {
+    if (againFrom == null || againAppliedRef.current) return;
+    againAppliedRef.current = true;
+    (async () => {
+      try {
+        const [again, brief] = await Promise.all([
+          getOrderAgain(againFrom),
+          targetWorker ? null : getOrderBrief(againFrom).catch(() => null),
+        ]);
+        if (descriptionRef.current.trim()) return;
+        if (brief?.workerId != null) {
+          setOrderWorker({
+            id: brief.workerId,
+            name: brief.master,
+            trade: brief.service,
+            bgColor: brief.color,
+            initial: brief.letter,
+            categoryId: brief.categoryId,
+          });
+        }
+        setDescription(again.description);
+        if (again.categoryIds.length > 0) setCategoryIds(again.categoryIds);
+        setWorkerCount(again.workersNeeded);
+        setExtraRequirements(again.extraRequirements);
+        if (again.regionId != null) presetLocation(again.regionId, again.districtId);
+        setStreet(again.landmark);
+        setMahalla(again.mahalla);
+        setEntrance(again.entrance);
+        setFloor(again.floor);
+        if (again.gpsLat != null && again.gpsLng != null) {
+          setGpsLat(again.gpsLat);
+          setGpsLng(again.gpsLng);
+        }
+        setKeptPhotos(again.photos.slice(0, MAX_PHOTOS));
+      } catch (err) {
+        appAlert(tr('newOrder.againFailedTitle'), getErrorMessage(err, tr, 'newOrder.againFailed'));
+      }
+    })();
+    // Bir marta: forma ochilganda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [againFrom]);
 
   const toggleCategory = (id) => {
     setCategoryIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -240,6 +299,8 @@ export default function NewOrderScreen({ onOrderCreated, targetWorker, onBack, o
     fixedPrice,
     paymentMethod,
     orgSiteId,
+    againFrom,
+    keptPhotos,
   };
 
   // Qoralama: konkret ustaga buyurtmada ishlatilmaydi (u ustaga xos, oddiy qoralamani buzmasligi kerak).
@@ -490,6 +551,8 @@ export default function NewOrderScreen({ onOrderCreated, targetWorker, onBack, o
         </View>
         <PhotosSection
           photos={photos}
+          keptPhotos={keptPhotos}
+          removeKept={removeKept}
           pickPhotos={pickPhotos}
           removePhoto={removePhoto}
           setPreviewIndex={setPreviewIndex}
@@ -585,11 +648,11 @@ export default function NewOrderScreen({ onOrderCreated, targetWorker, onBack, o
         selectedCategories={selectedCategories}
         addressTitle={addressTitle}
         addressSubtitle={addressSubtitle}
-        photos={photos}
+        photos={[...keptPhotos, ...photos]}
       />
 
       <PhotoPreviewModal
-        photos={photos}
+        photos={[...keptPhotos, ...photos]}
         previewIndex={previewIndex}
         setPreviewIndex={setPreviewIndex}
       />

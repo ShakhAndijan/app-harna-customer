@@ -19,9 +19,10 @@ import Avatar from '../../../components/Avatar';
 import { searchListingAuthors } from '../../../api/listings';
 
 const MIN_LENGTH = 2;
-const DEBOUNCE_MS = 400;
+const DEBOUNCE_MS = 300;
 
-// "Mutaxassis" filtri oynasi: nik, ism yoki telefon bo'yicha qidirib, bitta muallifni tanlash.
+// "Mutaxassis" filtri oynasi: ism yoki to'liq telefon raqami bo'yicha qidirib, bitta muallifni tanlash.
+// Qidiruv matni yozilganicha yuboriladi (server ikkala alifboni o'zi moslaydi).
 export default function AuthorFilterModal({ visible, selected, onPick, onClose }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -49,6 +50,8 @@ function Sheet({ selected, onPick, onClose }) {
     staleTime: 60 * 1000,
   });
   const authors = enabled ? (data ?? []) : [];
+  // Faqat raqam yozilgan, to'liq telefon (9 raqam) emas va natija yo'q: to'liq yozish so'raladi.
+  const partialPhone = /^[ds+()-]+$/.test(q) && q.replace(/D/g, '').length < 9;
 
   return (
     <KeyboardAvoidingView
@@ -82,7 +85,9 @@ function Sheet({ selected, onPick, onClose }) {
         {!enabled ? (
           <Text style={[s.hint, { color: t.muted }]}>{tr('listings.filters.authorHint')}</Text>
         ) : !isFetching && authors.length === 0 ? (
-          <Text style={[s.hint, { color: t.muted }]}>{tr('listings.filters.authorEmpty')}</Text>
+          <Text style={[s.hint, { color: t.muted }]}>
+            {tr(partialPhone ? 'listings.filters.authorPhoneFull' : 'listings.filters.authorEmpty')}
+          </Text>
         ) : (
           <FlatList
             data={authors}
@@ -113,12 +118,7 @@ function Sheet({ selected, onPick, onClose }) {
                     {item.name}
                   </Text>
                   <Text style={[s.meta, { color: t.muted }]} numberOfLines={1}>
-                    {[
-                      item.nickname ? `@${item.nickname}` : null,
-                      tr('listings.filters.authorCount', { n: item.listingCount }),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
+                    {tr('listings.filters.authorCount', { n: item.listingCount })}
                   </Text>
                 </View>
               </TouchableOpacity>

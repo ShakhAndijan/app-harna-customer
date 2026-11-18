@@ -6,7 +6,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import AppLoader from '../components/AppLoader';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import { ustaRoute, newOrderRoute } from '../navigation/params';
+import { ustaRoute } from '../navigation/params';
 import useHomeData from './zakazchi-main/hooks/useHomeData';
 import HomeHeader from './zakazchi-main/components/HomeHeader';
 import QuickOrderCard from './zakazchi-main/components/QuickOrderCard';
@@ -18,8 +18,6 @@ import ServiceCategories from './zakazchi-main/components/ServiceCategories';
 import SeasonalJobs from './zakazchi-main/components/SeasonalJobs';
 import TopWorkers from './zakazchi-main/components/TopWorkers';
 import BenefitsSection from './zakazchi-main/components/BenefitsSection';
-import ReturningCustomerSection from './zakazchi-main/components/ReturningCustomerSection';
-import ReviewsCarousel from './zakazchi-main/components/ReviewsCarousel';
 import useTabBarSpace from '../navigation/useTabBarSpace';
 
 // Mijoz bosh sahifasi (pastki menyudagi "home" tabi). Boshqa ekranlarga o'tish expo-router orqali.
@@ -51,7 +49,6 @@ export default function ZakazchiMainScreen() {
   };
 
   const openUsta = (usta) => router.push(ustaRoute(usta));
-  const orderWorker = (worker) => router.navigate(newOrderRoute(worker));
 
   // "Usta tanlay olmayapsizmi?" kartasi faqat faol buyurtmasi yo'q mijozga ko'rinadi
   // (ma'lumot kelguncha ko'rsatilmaydi — miltillab o'chib qolmasligi uchun).
@@ -148,38 +145,18 @@ export default function ZakazchiMainScreen() {
               />
             </View>
 
-            {/* ── Mijoz holatiga qarab: buyurtmasi bor — shaxsiy blok, yo'q — "Nega HARNA?" ── */}
-            {!home.summary.loading && (
+            {/* ── Buyurtmasi yo'q mijozga "Nega HARNA?" ── */}
+            {!home.summary.loading && !hasPersonal && (
               <View style={{ paddingHorizontal: 20, marginTop: 24 }}>
-                {hasPersonal ? (
-                  <ReturningCustomerSection
-                    summary={home.summary.data}
-                    onOpenOrders={() => router.push('/orders')}
-                    onReorder={(order) =>
-                      orderWorker({
-                        id: order.workerId,
-                        name: order.master,
-                        trade: order.service,
-                        bgColor: order.color,
-                        initial: order.letter,
-                        categoryId: order.categoryId,
-                      })
-                    }
-                  />
-                ) : (
-                  <BenefitsSection
-                    stats={home.stats.data}
-                    onOpenGuarantee={() => router.push('/help')}
-                    onOpenVerified={() =>
-                      router.navigate({ pathname: '/services', params: { verified: '1' } })
-                    }
-                  />
-                )}
+                <BenefitsSection
+                  stats={home.stats.data}
+                  onOpenGuarantee={() => router.push('/help')}
+                  onOpenVerified={() =>
+                    router.navigate({ pathname: '/services', params: { verified: '1' } })
+                  }
+                />
               </View>
             )}
-
-            {/* ── Mijozlar fikri ── */}
-            <ReviewsCarousel state={home.reviews} />
           </>
         )}
       </ScrollView>

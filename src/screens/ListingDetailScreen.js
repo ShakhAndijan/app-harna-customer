@@ -139,6 +139,7 @@ export default function ListingDetailScreen({ listingId, initial, onBack }) {
             width={width - H_PAD * 2}
             height={Math.round((width - H_PAD * 2) * 0.75)}
             controls
+            duration={listing.videoDuration}
             contentFit="contain"
             style={{ borderRadius: 24, overflow: 'hidden', marginBottom: 12 }}
           />

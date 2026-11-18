@@ -25,7 +25,7 @@ const mapComplaint = (c) => ({
   reply: c.reply ?? null, // usta javobi
   repliedAt: c.replied_at ?? null,
   workerId: c.worker_id,
-  workerName: c.worker_name ?? '',
+  workerName: (c.worker_name ?? '').trim(),
   orderId: c.order_id,
   orderCode: c.order_code ?? '',
 });

@@ -8,7 +8,7 @@ import { decodeParam } from '../../navigation/params';
 export default function NewOrderRoute() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { worker } = useLocalSearchParams();
+  const { worker, again } = useLocalSearchParams();
   const [formKey, setFormKey] = useState(0);
 
   // Ekran butunlay olib tashlanganda (chiqish, qayta yuklash) marshrut yo'q — `setParams` "hech bir navigator
@@ -24,7 +24,7 @@ export default function NewOrderRoute() {
   useFocusEffect(
     useCallback(
       () => () => {
-        if (!unmounted.current) navigation.setParams({ worker: undefined });
+        if (!unmounted.current) navigation.setParams({ worker: undefined, again: undefined });
         setFormKey((k) => k + 1);
       },
       [navigation]
@@ -33,8 +33,9 @@ export default function NewOrderRoute() {
 
   return (
     <NewOrderScreen
-      key={`${formKey}:${worker ?? ''}`}
+      key={`${formKey}:${worker ?? ''}:${again ?? ''}`}
       targetWorker={decodeParam(worker)}
+      againFrom={again ? Number(again) : undefined}
       // Tiklangan qoralama ustidagi "Yangidan boshlash": forma bo'sh holda qayta ochiladi.
       onRestartDraft={() => setFormKey((k) => k + 1)}
       // Buyurtma berilgach bosh sahifaga qaytiladi — u yerda "Faol buyurtmalar" ro'yxatida ko'rinadi.

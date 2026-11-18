@@ -70,13 +70,60 @@ const toNumber = (v) => {
 
 const getJson = (url, errorLabel) => request(url, { fallbackMessage: errorLabel });
 
+// Kafolat murojaati holati: awaiting_worker | fixing | customer_check | disputed | fixed | refunded | rejected.
+function mapGuarantee(g) {
+  if (!g) return null;
+  const c = g.claim;
+  return {
+    eligible: !!g.eligible,
+    until: g.until ?? null,
+    reason: g.reason ?? null,
+    claim: c
+      ? {
+          status: c.status ?? null,
+          description: c.description?.trim() || null,
+          photos: Array.isArray(c.photos) ? c.photos : [],
+          resolution: c.resolution ?? null,
+          refundAmount: toNumber(c.refund_amount),
+          refundMethod: c.refund_method ?? null,
+          // Holatga mos javob muddati (saytdagi `li` funksiyasi).
+          deadline:
+            c.deadline ??
+            (c.status === 'awaiting_worker'
+              ? c.worker_answer_deadline
+              : c.status === 'fixing'
+                ? c.fix_deadline
+                : c.status === 'customer_check'
+                  ? c.customer_check_deadline
+                  : null) ??
+            null,
+        }
+      : null,
+  };
+}
+
+// Qo'shimcha ish: status pending | approved | declined | lapsed | closed.
+function mapExtra(x) {
+  const note = x.description?.trim() || null;
+  return {
+    id: x.id,
+    status: x.status ?? 'pending',
+    // Sayt "ish nomi (izoh)" ko'rinishida ko'rsatadi.
+    title: x.task_name && note ? `${x.task_name} (${note})` : (note ?? x.task_name ?? ''),
+    price: toNumber(x.price),
+    photoUrl: x.photo_url ?? null,
+    deadline: x.deadline ?? null,
+  };
+}
+
 /**
  * Backenddagi OrderOut / OrderDetailOut obyektini UI formatiga o'giradi.
  * Ikkala shakl ham qo'llab-quvvatlanadi (ro'yxat: worker_name/task_names,
  * tafsilot: worker{}/tasks[]/category{}).
  */
 export function mapOrder(o) {
-  const workerName = o.worker_name ?? o.worker?.full_name ?? null;
+  // Familiyasiz usta uchun server "Aziz " (oxirida bo'shliq) qaytarishi mumkin.
+  const workerName = (o.worker_name ?? o.worker?.full_name)?.trim() || null;
   const workerPhoto = o.worker_photo ?? o.worker?.profile_photo ?? null;
   const workerId = o.worker_id ?? o.worker?.id ?? null;
   const taskNames = o.task_names ?? (o.tasks || []).map((t) => t.name);
@@ -139,7 +186,7 @@ export function mapOrder(o) {
     returnedAt: o.returned_at ?? null,
     returnedBy: o.returned_by ?? null,
     returnedWorkerId: o.returned_worker_id ?? null,
-    returnedWorkerName: o.returned_worker_name ?? null,
+    returnedWorkerName: o.returned_worker_name?.trim() || null,
     returnedRecalled: !!o.returned_recalled,
     // Qaytarish sababi va muddat tugagani uchun avtomatik qaytarilganmi.
     returnedReason: o.returned_reason?.trim() || null,
@@ -148,6 +195,11 @@ export function mapOrder(o) {
     cancelledBy: o.cancelled_by ?? null,
     agreedAt: o.agreed_at ?? null,
     completedAt: o.completed_at ?? null,
+    // "Tarix" (vaqt chizig'i) uchun: usta qabul qilgan va buyurtma bekor qilingan vaqtlar, e'lon.
+    acceptedAt: o.accepted_at ?? null,
+    cancelledAt: o.cancelled_at ?? null,
+    listingTitle: o.listing?.title?.trim() || null,
+    listingCode: o.listing?.code ?? null,
     // Smeta: ustaning ish/material qatorlari.
     estimate: (o.estimate ?? []).map((row) => ({
       name: row.name ?? '',
@@ -165,6 +217,12 @@ export function mapOrder(o) {
     workNotDoneLeft: o.work_not_done_left ?? null,
     offerDate: o.offer_date ?? null,
     scheduledDate: o.scheduled_date ?? null,
+    // Usta kelish vaqti oralig'i: kelishilgan (`window_*`) va kelishuvdagi taklif (`offer_window_*`).
+    windowStart: o.window_start ?? null,
+    windowEnd: o.window_end ?? null,
+    windowMinutes: o.window_minutes ?? null,
+    offerWindowStart: o.offer_window_start ?? null,
+    offerWindowEnd: o.offer_window_end ?? null,
     timingKind: o.timing_kind ?? null,
     budget,
     reposted: !!o.reposted,
@@ -176,8 +234,31 @@ export function mapOrder(o) {
           note: o.match_complaint.note?.trim() || null,
           answerDeadline: o.match_complaint.answer_deadline ?? o.complaint_until ?? null,
           customerReached: o.match_complaint.customer_reached ?? null,
+          // Shikoyat turi (no_contact | no_work): chatdagi tizim xabari matni shunga bog'liq.
+          kind: o.match_complaint.kind ?? null,
         }
       : null,
+    // Usta yetib kelgan vaqt va "Usta keldimi?" tekshiruvi (javob berish mumkinmi, muddat, holat).
+    workerArrivedAt: o.worker_arrived_at ?? null,
+    arrivalCheck: o.arrival_check
+      ? {
+          canAnswer: !!o.arrival_check.can_answer,
+          until: o.arrival_check.until ?? null,
+          deadline: o.arrival_check.deadline ?? null,
+          status: o.arrival_check.status ?? null,
+          complaintId: o.arrival_check.complaint_id ?? null,
+          resolution: o.arrival_check.resolution ?? null,
+          answer: o.arrival_check.answer ?? null,
+        }
+      : null,
+    // Kafolat: murojaat berish mumkinmi (`eligible`, `until`, `reason`) yoki mavjud murojaat holati.
+    guarantee: mapGuarantee(o.guarantee),
+    // Qo'shimcha ishlar: mijoz javobini kutayotgan taklif, tasdiqlanganlar yig'indisi va jami narx.
+    pendingExtra: o.pending_extra ? mapExtra(o.pending_extra) : null,
+    extras: Array.isArray(o.extras) ? o.extras.map(mapExtra) : [],
+    extrasTotal: toNumber(o.extras_total) ?? 0,
+    totalPrice:
+      toNumber(o.total_price) ?? (agreed != null ? agreed + (toNumber(o.extras_total) ?? 0) : null),
     // Usta reytingi faqat tafsilot javobida (`worker{}`) keladi.
     workerRating: toNumber(o.worker?.overall_rating),
     workerReviewCount: o.worker?.review_count ?? null,
@@ -233,7 +314,44 @@ export async function getOrderDetail(orderId) {
   const order = mapOrder(detail);
   order.paymentStatus = PAYMENT_STATE_TO_UI[payment?.state] || 'not_charged';
   order.paymentState = payment?.state ?? null;
+  // pending | created | paid | cancelled | refunded. Faqat paid va refunded "to'langan/qaytarilgan";
+  // qolgani (null, pending, cancelled, created) uchun to'lov formasi ochiq turadi.
+  const cents = Number(payment?.amount_tiyin);
+  order.paidAmount = Number.isFinite(cents) && cents > 0 ? cents / 100 : null;
+  // refund_reason — operatorning mijozga matni (ixtiyoriy). Tizim haqi (fee_tiyin) mijozga tegishli emas.
+  order.refundReason = payment?.refund_reason?.trim() || null;
   return order;
+}
+
+/**
+ * "Yana chaqirish": yakunlangan buyurtma yangi buyurtma formasining boshlang'ich nuqtasi sifatida
+ * (`GET /orders/{id}/again`). Narx, sana va telefon yo'q. Xatolar: 404 order_not_found,
+ * 409 order_not_completed, 403 permission_denied.
+ */
+export async function getOrderAgain(orderId) {
+  const d = await getJson(ENDPOINTS.ORDER_AGAIN(orderId), 'Buyurtma yuklanmadi');
+  const coord = (v) => {
+    const n = v == null || v === '' ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    orderId: d.order_id ?? orderId,
+    workerId: d.worker_id ?? null,
+    categoryIds: Array.isArray(d.task_category_ids) ? d.task_category_ids : [],
+    description: (d.description ?? '').trim(),
+    workersNeeded: Number(d.workers_needed) > 0 ? Number(d.workers_needed) : 1,
+    extraRequirements: d.extra_requirements ?? '',
+    regionId: d.region?.id ?? null,
+    districtId: d.district?.id ?? null,
+    mahalla: d.mahalla ?? '',
+    landmark: d.location_landmark ?? '',
+    entrance: d.entrance ?? '',
+    floor: d.floor ?? '',
+    gpsLat: coord(d.gps_lat),
+    gpsLng: coord(d.gps_lng),
+    // Eski buyurtma rasmlari (URL, ko'pi bilan 10): qayta yuklanmaydi, `kept_photos` bilan yuboriladi.
+    photos: Array.isArray(d.photos) ? d.photos.filter((u) => typeof u === 'string') : [],
+  };
 }
 
 // 422 validatsiya xatolarining maydon nomlari ApiError xabariga request() ichida qo'shiladi.
@@ -258,6 +376,11 @@ function mapChatMessage(m) {
     kind: m.kind,
     body: m.body ?? '',
     offerPrice: toNumber(m.offer_price),
+    // Narx taklifi xabarida: ish sanasi va kelish vaqti oralig'i boshlanishi.
+    offerDate: m.offer_date ?? null,
+    offerWindowStart: m.offer_window_start ?? null,
+    // Qo'shimcha ish taklifi xabarida (kind: 'extra'): buyurtmadagi `extras[]` elementi id'si.
+    extraId: m.extra_id ?? null,
     at: m.created_at,
   };
 }
@@ -271,7 +394,7 @@ export function mapChat(data) {
   return {
     threads: (data?.threads ?? []).map((t) => ({
       workerId: t.worker_id ?? null,
-      workerName: t.worker_name ?? null,
+      workerName: t.worker_name?.trim() || null,
       workerPhoto: t.worker_photo ?? null,
       isActive: !!t.is_active,
       messages: (t.messages ?? []).map(mapChatMessage),
@@ -297,13 +420,23 @@ export async function sendOrderChat(orderId, body, workerId) {
 export const markOrderChatRead = (orderId) =>
   postJson(ENDPOINTS.ORDER_CHAT_READ(orderId), undefined, "Chat o'qilmadi");
 
-/** Narx (va ish sanasi, "YYYY-MM-DD") taklif qiladi yoki qarshi narx aytadi (ACCEPTED bosqichida). */
-export const offerOrderPrice = (orderId, price, scheduledDate) =>
+/**
+ * Narx (va ish sanasi "YYYY-MM-DD", ixtiyoriy kelish vaqti boshlanishi "HH:MM") taklif qiladi
+ * yoki qarshi narx aytadi (ACCEPTED bosqichida).
+ */
+export const offerOrderPrice = (orderId, price, scheduledDate, windowStart) =>
   postJson(
     ENDPOINTS.ORDER_OFFER(orderId),
-    scheduledDate ? { price, scheduled_date: scheduledDate } : { price },
+    {
+      price,
+      ...(scheduledDate ? { scheduled_date: scheduledDate } : {}),
+      ...(windowStart ? { window_start: windowStart } : {}),
+    },
     'Narx yuborilmadi'
   );
+
+/** Kelish vaqti oralig'i sozlamalari (davomiylik, birinchi/oxirgi soat) — ommaviy, tokensiz. */
+export const getOrderTiming = () => request(ENDPOINTS.SYSTEM_ORDER_TIMING, { auth: false });
 
 /** Ustaning taklifini qabul qiladi: ACCEPTED → ACTIVE. */
 export const agreeOrder = (orderId, scheduledDate) =>
@@ -351,12 +484,13 @@ function mapOffer(o) {
     price: toNumber(o.price),
     priceBy: o.price_by ?? null,
     offerDate: o.offer_date ?? null,
+    windowStart: o.window_start ?? null,
     arrival: o.arrival ?? null,
     comment: o.comment ?? null,
     createdAt: o.created_at,
     worker: {
       id: w.id ?? null,
-      name: w.full_name ?? '',
+      name: (w.full_name ?? '').trim(),
       photo: w.profile_photo ?? null,
       verified: !!w.is_identity_verified,
       rating: toNumber(w.overall_rating),
@@ -441,25 +575,78 @@ export async function getOrderStages(orderId) {
 export const confirmOrderStage = (orderId, stageId) =>
   postJson(ENDPOINTS.ORDER_STAGE_CONFIRM(orderId, stageId), undefined, 'Bosqich tasdiqlanmadi');
 
+/**
+ * Ustaning qo'shimcha ish taklifiga javob: `approve` true — narxga qo'shiladi, false — narx o'zgarmaydi.
+ * Muddat o'tgan bo'lsa 409 (extra_lapsed | extra_not_pending | extra_not_found).
+ */
+export const decideOrderExtra = (orderId, extraId, approve) =>
+  postJson(ENDPOINTS.ORDER_EXTRA_DECISION(orderId, extraId), { approve }, 'Javob yuborilmadi');
+
+/**
+ * "Usta keldimi?" savoliga javob: `on_time` (vaqtida) | `late` (kechikib) | `no_show` (kelmadi —
+ * ustaga xabar ketadi, tasdiqlansa buyurtma bekor qilinadi).
+ */
+export const answerArrivalCheck = (orderId, answer) =>
+  postJson(ENDPOINTS.ORDER_ARRIVAL_CHECK(orderId), { answer }, 'Javob yuborilmadi');
+
+/** Kafolat bo'yicha murojaat: nima noto'g'ri bajarilgani (1–1000 belgi) va rasmlar (`temp_key`lar). */
+export const fileGuaranteeClaim = (orderId, description, photoKeys = []) =>
+  postJson(
+    ENDPOINTS.ORDER_GUARANTEE_CLAIM(orderId),
+    { description, photo_temp_keys: photoKeys },
+    'Murojaat yuborilmadi'
+  );
+
+/** Usta "tuzatdim" degach mijoz javobi: `fixed` true — tuzatildi, false — operatorga o'tadi. */
+export const checkGuaranteeFix = (orderId, fixed) =>
+  postJson(ENDPOINTS.ORDER_GUARANTEE_CHECK(orderId), { fixed }, 'Javob yuborilmadi');
+
 // ─── Onlayn to'lov ───────────────────────────────────────────────────
 
-/** Serverda yoqilgan to'lov tizimlari (payme | click). Bo'sh bo'lsa to'lov tugmasi yashiriladi. */
+const DEFAULT_PAY_MIN = 1000;
+const DEFAULT_PAY_MAX = 10000000;
+
+const providerId = (p) => (typeof p === 'string' ? p : (p?.id ?? p?.provider ?? p?.code));
+
+// Payme birinchi, qolganlari alifbo tartibida.
+const sortProviders = (list) =>
+  [...list].sort((a, b) => (a === 'payme' ? -1 : b === 'payme' ? 1 : a.localeCompare(b)));
+
+// Chegara o'nlik satr ("1000"); yo'q yoki musbat bo'lmasa standart qiymat.
+const limit = (value, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+/**
+ * Ochiq `GET /payments/providers`. Ish uchun to'lovda `order_providers` ishlatiladi (onlayn ish
+ * to'lovi o'chiq bo'lsa [] — hamyon to'ldirish ishlab tursa ham `providers` bo'sh emas). Maydon
+ * faqat eski serverda bo'lmaydi: shundagina `providers` ga qaytiladi.
+ * @returns {Promise<{ providers: string[], minAmount: number, maxAmount: number }>}
+ */
 export async function getPaymentProviders() {
   const data = await request(ENDPOINTS.PAYMENT_PROVIDERS, { auth: false });
-  const list = Array.isArray(data) ? data : (data?.providers ?? []);
-  return list
-    .map((p) => (typeof p === 'string' ? p : (p?.id ?? p?.provider ?? p?.code)))
-    .filter(Boolean);
+  const raw = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.order_providers)
+      ? data.order_providers
+      : (data?.providers ?? []);
+  return {
+    providers: sortProviders(raw.map(providerId).filter(Boolean)),
+    minAmount: limit(data?.min_amount, DEFAULT_PAY_MIN),
+    maxAmount: limit(data?.max_amount, DEFAULT_PAY_MAX),
+  };
 }
 
 /**
  * Bajarilgan buyurtma uchun to'lov yaratadi; `checkout_url` — brauzerda ochiladigan to'lov sahifasi
- * (409 order_not_completed / order_already_paid).
+ * (409 order_payments_off / order_not_completed / order_already_paid / payment_in_progress). `fee_tiyin` mijozga ko'rsatilmaydi.
  */
 export async function createOrderPayment(orderId, { amountUzs, provider, locale }) {
   const body = { amount_uzs: Math.round(amountUzs) };
   if (provider) body.provider = provider;
   if (locale) body.locale = locale;
+  body.return_to = 'app';
   const data = await postJson(ENDPOINTS.ORDER_PAYMENT(orderId), body, "To'lov boshlanmadi");
   return {
     id: data?.id ?? null,

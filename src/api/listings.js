@@ -38,7 +38,6 @@ export function mapListing(l) {
       ? {
           id: w.id,
           name: [firstName, w.last_name].filter(Boolean).join(' '),
-          nickname: w.nickname ?? null,
           initial: firstName[0]?.toUpperCase() ?? '?',
           color: AVATAR_COLORS[w.id % AVATAR_COLORS.length],
           photo: secureUrl(w.profile_photo) ?? null,
@@ -112,19 +111,18 @@ export async function getFavoriteListingsPage({ page = 1, size = 12 } = {}) {
 }
 
 /**
- * "Mutaxassis" filtri uchun e'lon mualliflarini qidiradi: nik, ism yoki to'liq telefon raqami.
- * @returns {Promise<{ id: number, name: string, nickname: string|null, photo: string|null, listingCount: number }[]>}
+ * "Mutaxassis" filtri uchun e'lon mualliflarini qidiradi: ism yoki to'liq telefon raqami.
+ * @returns {Promise<{ id: number, name: string, photo: string|null, listingCount: number }[]>}
  */
 export async function searchListingAuthors(q, limit = 10) {
   const text = q.trim();
   if (!text) return [];
-  const data = await request(ENDPOINTS.LISTING_AUTHORS(text.slice(0, 100), limit), {
+  const data = await request(ENDPOINTS.LISTING_AUTHORS(text.slice(0, 50), limit), {
     fallbackMessage: 'Mutaxassislar yuklanmadi',
   });
   return (data ?? []).map((a) => ({
     id: a.id,
-    name: [a.first_name, a.last_name].filter(Boolean).join(' '),
-    nickname: a.nickname ?? null,
+    name: [a.first_name, a.last_name].filter(Boolean).join(' ').trim(),
     photo: secureUrl(a.profile_photo) ?? null,
     listingCount: a.listing_count ?? 0,
   }));
@@ -192,6 +190,14 @@ export const addListingComment = (listingId, body) =>
     method: 'POST',
     body: { body: body.trim() },
     fallbackMessage: 'Izoh yuborilmadi',
+  });
+
+// Izohni tahrirlash (PATCH). Diqqat: dev-back hozircha bu usulni qo'llamaydi (405) — CommentsSection'dagi COMMENT_EDIT_ENABLED bayrog'iga qarang.
+export const updateListingComment = (listingId, commentId, body) =>
+  request(ENDPOINTS.LISTING_COMMENT(listingId, commentId), {
+    method: 'PATCH',
+    body: { body: body.trim() },
+    fallbackMessage: "Izoh o'zgartirilmadi",
   });
 
 export const deleteListingComment = (listingId, commentId) =>

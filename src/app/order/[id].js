@@ -18,14 +18,19 @@ export default function OrderRoute() {
       onReorder={(o) =>
         o.workerId
           ? router.navigate(
-              newOrderRoute({
-                id: o.workerId,
-                name: o.master,
-                trade: o.service,
-                bgColor: o.color,
-                initial: o.letter,
-                categoryId: o.categoryId,
-              })
+              newOrderRoute(
+                {
+                  id: o.workerId,
+                  name: o.master,
+                  trade: o.service,
+                  bgColor: o.color,
+                  initial: o.letter,
+                  categoryId: o.categoryId,
+                },
+                // Usta bilan yakunlangan buyurtma: forma eski buyurtma ma'lumotlari bilan ochiladi
+                // (bekor qilinganida /again 409 qaytaradi — oddiy qayta buyurtma).
+                o.status === 'done' ? o.id : undefined
+              )
             )
           : router.navigate('/new-order')
       }

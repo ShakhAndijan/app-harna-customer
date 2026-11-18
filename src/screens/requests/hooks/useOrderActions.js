@@ -12,12 +12,18 @@ import {
   recallOrder,
   repostOrder,
   completeOrder,
+  decideOrderExtra,
+  answerArrivalCheck,
+  fileGuaranteeClaim,
+  checkGuaranteeFix,
+  uploadOrderPhoto,
   workNotDone,
   answerMatchComplaint,
 } from '../../../api/orders';
 import { formatNumber } from '../../../utils/format';
 import { getErrorMessage } from '../../../utils/errors';
-import { formatDay, offerDay } from '../utils';
+import { formatPrice, offerDay } from '../utils';
+import { dayWithWindow, offerWindowLabel } from '../arrival';
 
 // Buyurtma ustidagi amallar: ustaning taklifini qabul qilish yoki rad etish, narx taklif qilish, bekor qilish.
 // Har biri tugagach `onDone` (odatda buyurtmani qayta yuklash) chaqiriladi, xato bo'lsa ogohlantirish.
@@ -53,7 +59,7 @@ export default function useOrderActions(orderId, onDone) {
         title: tr('orderFlow.stage.agreeTitle'),
         message: tr('orderFlow.order.takeBody', {
           price: `${formatNumber(Math.round(order.offerPrice))} ${tr('common.currencySom')}`,
-          day: formatDay(tr, offerDay(order)),
+          day: dayWithWindow(tr, offerDay(order), offerWindowLabel(order)),
         }),
         confirmLabel: tr('orderFlow.stage.agree'),
         onConfirm: () => run(() => agreeOrder(orderId)),
@@ -124,6 +130,76 @@ export default function useOrderActions(orderId, onDone) {
     [orderId, run, tr]
   );
 
+  // Qo'shimcha ish taklifiga javob. Roziman bosilsa avval jami narx ko'rsatilib tasdiqlanadi (saytdagidek).
+  // Muddat o'tib ketgan bo'lsa (409) xato chiqadi va buyurtma baribir yangilanadi (`run` ichida).
+  const decideExtra = useCallback(
+    (extra, approve, total) => {
+      const send = async () => {
+        if (await run(() => decideOrderExtra(orderId, extra.id, approve))) {
+          appAlert(tr(approve ? 'extraWork.approved' : 'extraWork.declined'));
+        } else {
+          onDone?.();
+        }
+      };
+      if (!approve) return send();
+      return appConfirm({
+        title: tr('extraWork.approveTitle'),
+        message:
+          total != null ? tr('extraWork.approveConfirm', { total: formatPrice(tr, total) }) : '',
+        confirmLabel: tr('extraWork.approve'),
+        onConfirm: send,
+      });
+    },
+    [orderId, run, tr, onDone]
+  );
+
+  // "Usta keldimi?": vaqtida / kechikib — darhol; "kelmadi" — avval tasdiqlanadi (ustaga xabar ketadi).
+  // Holat o'zgargan bo'lsa (409) xato chiqadi va buyurtma baribir yangilanadi.
+  const answerArrival = useCallback(
+    (answer) => {
+      const send = async () => {
+        if (!(await run(() => answerArrivalCheck(orderId, answer)))) onDone?.();
+      };
+      if (answer !== 'no_show') return send();
+      return appConfirm({
+        title: tr('arrivalCheck.noShowTitle'),
+        message: tr('arrivalCheck.noShowText'),
+        confirmLabel: tr('arrivalCheck.noShowOk'),
+        destructive: true,
+        onConfirm: send,
+      });
+    },
+    [orderId, run, tr, onDone]
+  );
+
+  // Kafolat murojaati: rasmlar avval yuklanadi, so'ng matn bilan yuboriladi. `true` — yuborildi.
+  const fileGuarantee = useCallback(
+    (description, photos) =>
+      run(async () => {
+        const keys = await Promise.all(photos.map((p) => uploadOrderPhoto(p.uri, p.mimeType)));
+        await fileGuaranteeClaim(orderId, description, keys);
+      }),
+    [orderId, run]
+  );
+
+  // Usta "tuzatdim" degach: "Tuzatildi" darhol, "Tuzatilmadi" — tasdiqlangach (operatorga o'tadi).
+  const checkGuarantee = useCallback(
+    (fixed) => {
+      const send = async () => {
+        if (!(await run(() => checkGuaranteeFix(orderId, fixed)))) onDone?.();
+      };
+      if (fixed) return send();
+      return appConfirm({
+        title: tr('guarantee.fixedNo'),
+        message: tr('guarantee.notFixedConfirm'),
+        confirmLabel: tr('guarantee.fixedNo'),
+        destructive: true,
+        onConfirm: send,
+      });
+    },
+    [orderId, run, tr, onDone]
+  );
+
   // Kelishuvni to'xtatish: saytdagidek sababsiz, faqat tasdiqlash. `after` — muvaffaqiyatdan keyin.
   const confirmDecline = useCallback(
     (after) =>
@@ -161,7 +237,7 @@ export default function useOrderActions(orderId, onDone) {
   );
 
   const offerPrice = useCallback(
-    (price, day) => run(() => offerOrderPrice(orderId, price, day)),
+    (price, day, windowStart) => run(() => offerOrderPrice(orderId, price, day, windowStart)),
     [orderId, run]
   );
   const cancel = useCallback(
@@ -171,6 +247,10 @@ export default function useOrderActions(orderId, onDone) {
 
   return {
     busy,
+    decideExtra,
+    answerArrival,
+    fileGuarantee,
+    checkGuarantee,
     confirmDecline,
     confirmAgree,
     confirmRecall,

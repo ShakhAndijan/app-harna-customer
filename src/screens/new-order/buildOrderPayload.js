@@ -32,6 +32,8 @@ export default function buildOrderPayload({
   fixedPrice,
   paymentMethod,
   orgSiteId,
+  againFrom,
+  keptPhotos,
 }) {
   // Aniq ustaga buyurtma berilganda ishchiga talablar yuborilmaydi (faqat "boshqa talablar" matni).
   const targeted = orderWorker?.id != null;
@@ -73,5 +75,9 @@ export default function buildOrderPayload({
     budget: pricingType === 'fixed' && fixedPrice.trim() ? Number(fixedPrice) : null,
     payment_method: paymentMethod,
     org_site_id: orgSiteId ?? null,
+    // "Yana chaqirish": eski buyurtma rasmlari qayta yuklanmaydi; rasm qolmagan bo'lsa ikkalasi ham yuborilmaydi.
+    ...(againFrom != null && keptPhotos?.length > 0
+      ? { again_from: Number(againFrom), kept_photos: keptPhotos }
+      : {}),
   };
 }

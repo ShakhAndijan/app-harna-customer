@@ -66,6 +66,11 @@ export function notificationDetail(n) {
 export function notificationHref(n) {
   const p = n.payload ?? {};
   if (n.type === 'support.answered') return supportRoute(p.kind);
+  if (n.type === 'verification.manual_closed') return '/verify-identity';
+  // Takroriy eslatma: yakunlangan buyurtma ma'lumotlari bilan to'ldirilgan yangi buyurtma formasi.
+  if (n.type === 'order.repeat_reminder' && p.order_id != null) {
+    return { pathname: '/new-order', params: { again: String(p.order_id) } };
+  }
   if (n.type === 'listing.commented' || n.type === 'listing.replied') {
     return typeof p.listing_id === 'number'
       ? { pathname: '/listing/[id]', params: { id: String(p.listing_id) } }
@@ -85,6 +90,8 @@ export function notificationHref(n) {
 export function notificationAction(n) {
   const p = n.payload ?? {};
   if (n.type === 'support.answered') return 'notifList.openAnswer';
+  if (n.type === 'verification.manual_closed') return 'notifList.openVerify';
+  if (n.type === 'order.repeat_reminder' && p.order_id != null) return 'notifList.openAgain';
   if (n.type === 'listing.commented' || n.type === 'listing.replied')
     return 'notifList.openListing';
   if (p.order_id != null && /^(order|offer)./.test(n.type)) return 'notifList.openOrder';

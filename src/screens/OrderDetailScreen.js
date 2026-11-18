@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Share } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AppState, View, Text, TouchableOpacity, ScrollView, Share } from 'react-native';
+import * as Linking from 'expo-linking';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
 import { appAlert } from '../components/AppAlert';
@@ -7,8 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import { formatNumber, formatDate } from '../utils/format';
+import { formatNumber } from '../utils/format';
 import { getErrorMessage } from '../utils/errors';
+import { ApiError } from '../utils/request';
 import {
   addFinalComment,
   confirmOrderStage,
@@ -30,9 +32,12 @@ import { MasterNoteCard, CustomerReviewCard } from './orders/components/NoteCard
 import OrderActions from './orders/components/OrderActions';
 import ContactsCard from './orders/components/ContactsCard';
 import StagesCard from './orders/components/StagesCard';
+import ExtrasList from './orders/components/ExtrasList';
 import EstimateCard from './orders/components/EstimateCard';
 import PayCard from './orders/components/PayCard';
-import InfoRow from './orders/components/InfoRow';
+import PaymentResult from './orders/components/PaymentResult';
+import OrderHistory, { historyRows } from './orders/components/OrderHistory';
+import GuaranteeCard from './orders/components/GuaranteeCard';
 import DescriptionCard from './orders/components/DescriptionCard';
 import PromptModal from './requests/components/PromptModal';
 import RepostModal from './requests/components/RepostModal';
@@ -61,6 +66,8 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
   const [commentBusy, setCommentBusy] = useState(false);
   const [confirmingId, setConfirmingId] = useState(null);
   const [payBusy, setPayBusy] = useState(false);
+  // 409 order_payments_off: server onlayn ish to'lovini o'chirgan — karta yashiriladi (naqd qoladi).
+  const [paymentsOff, setPaymentsOff] = useState(false);
 
   const [beforeIndex, setBeforeIndex] = useState(0);
   const [afterIndex, setAfterIndex] = useState(0);
@@ -88,10 +95,34 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
     staleTime: 10 * 60 * 1000,
     enabled: isDone,
   });
-  const providers = providersQuery.data ?? [];
-  const payAmount = order.agreedPrice ?? order.price;
-  const canPay =
-    isDone && order.paymentStatus === 'not_charged' && payAmount > 0 && providers.length > 0;
+  const providers = providersQuery.data?.providers ?? [];
+  const minAmount = providersQuery.data?.minAmount;
+  const maxAmount = providersQuery.data?.maxAmount;
+  // To'lov summasi qo'shimcha ishlarni ham o'z ichiga oladi (jami narx).
+  const payAmount = order.totalPrice ?? order.agreedPrice ?? order.price;
+  // Tizimlar ro'yxati yuklangach karta ko'rinadi; bo'sh bo'lsa "ulanmagan" izohi, summa chegaradan
+  // tashqarida bo'lsa chegara raqami bilan izoh chiqadi (tugma ishlamaydi).
+  const showPay =
+    isDone &&
+    order.paymentStatus === 'not_charged' &&
+    payAmount > 0 &&
+    providersQuery.isSuccess &&
+    !paymentsOff;
+  const payBlockedNote = providers.length === 0 ? tr('orderDetail.payNotConnected') : null;
+
+  // To'lov sahifasidan (Click/Payme) ilova oldingi planga qaytganda holat qayta o'qiladi: Payme
+  // to'lovchini ilovaga qaytarmaydi, Click esa harna://order/{id} orqali qaytaradi.
+  const awaitingPayment = isDone && order.paymentStatus === 'not_charged';
+  useEffect(() => {
+    if (!awaitingPayment) return undefined;
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') {
+        refresh().catch(() => {});
+        queryClient.invalidateQueries({ queryKey: ['orders'] });
+      }
+    });
+    return () => sub.remove();
+  }, [awaitingPayment, refresh, queryClient]);
 
   const confirmStage = async (stage) => {
     if (confirmingId != null) return;
@@ -106,17 +137,40 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
     }
   };
 
-  const startPayment = async (provider) => {
+  const payErrorMessage = (e) => {
+    if (e instanceof ApiError) {
+      if (e.code === 'order_payments_off') return getErrorMessage(e, tr, 'orderDetail.payOff');
+      // Tizim tranzaksiyani yaqinda ochgan: boshqa summa/tizim qabul qilinmaydi. Qayta urinish
+      // tsikli yo'q; karta ham yopilmaydi (12 soat qachon tugashini ilova bilmaydi).
+      if (e.code === 'payment_in_progress') {
+        return getErrorMessage(e, tr, 'orderDetail.payInProgress');
+      }
+    }
+    return getErrorMessage(e, tr, 'orderDetail.payFailed');
+  };
+
+  const startPayment = async (provider, amountUzs) => {
     setPayBusy(true);
     try {
       const payment = await createOrderPayment(order.id, {
-        amountUzs: payAmount,
+        amountUzs,
         provider,
         locale: language,
       });
-      if (payment.checkoutUrl) await WebBrowser.openBrowserAsync(payment.checkoutUrl);
+      const url = payment.checkoutUrl;
+      if (url) {
+        // Click havolasi (oxirida "/") Click ilovasi o'rnatilgan bo'lsa shu ilovada, aks holda
+        // brauzerda ochiladi; tugagach server harna://order/{id} ga qaytaradi. Payme havolasida
+        // qaytish manzili yo'q: ilova ichidagi brauzerda ochiladi, to'lovchi o'zi qaytadi.
+        if (provider === 'click' || /(^|\.)click\.uz\//.test(url.replace(/^https?:\/\//, ''))) {
+          await Linking.openURL(url);
+        } else {
+          await WebBrowser.openBrowserAsync(url);
+        }
+      }
     } catch (e) {
-      appAlert(tr('common.errorTitle'), getErrorMessage(e, tr, 'orderDetail.payFailed'));
+      if (e instanceof ApiError && e.code === 'order_payments_off') setPaymentsOff(true);
+      appAlert(tr('common.errorTitle'), payErrorMessage(e));
     } finally {
       setPayBusy(false);
       // To'lov sahifasidan qaytgach (yoki xatoda) holatni serverdan qayta o'qiymiz.
@@ -125,13 +179,16 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
     }
   };
 
-  const pay = () => {
+  const pay = (amountUzs) => {
     if (providers.length <= 1) {
-      startPayment(providers[0]);
+      startPayment(providers[0], amountUzs);
       return;
     }
     appAlert(tr('orderDetail.payChoose'), undefined, [
-      ...providers.map((p) => ({ text: PROVIDER_LABEL[p] ?? p, onPress: () => startPayment(p) })),
+      ...providers.map((p) => ({
+        text: PROVIDER_LABEL[p] ?? p,
+        onPress: () => startPayment(p, amountUzs),
+      })),
       { style: 'cancel' },
     ]);
   };
@@ -214,6 +271,13 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
           </>
         )}
 
+        {order.extras.length > 0 && (
+          <>
+            <SectionLabel t={t}>{tr('extraWork.listTitle')}</SectionLabel>
+            <ExtrasList extras={order.extras} t={t} />
+          </>
+        )}
+
         {order.estimate.length > 0 && (
           <>
             <SectionLabel t={t}>{tr('orderDetail.estimateTitle')}</SectionLabel>
@@ -228,42 +292,42 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
           </>
         )}
 
-        {canPay && (
+        {isDone && (order.paymentStatus === 'paid' || order.paymentStatus === 'refunded') && (
           <View style={{ marginTop: 12 }}>
-            <PayCard amount={payAmount} busy={payBusy} onPay={pay} t={t} />
+            <PaymentResult order={order} />
           </View>
         )}
 
-        {(!!order.agreedAt || !!order.completedAt) && (
+        {showPay && (
+          <View style={{ marginTop: 12 }}>
+            <PayCard
+              amount={payAmount}
+              busy={payBusy}
+              min={minAmount}
+              max={maxAmount}
+              blockedNote={payBlockedNote}
+              processing={order.paymentState === 'created'}
+              onPay={pay}
+              t={t}
+            />
+          </View>
+        )}
+
+        {isDone && !!order.guarantee && (
+          <View style={{ marginTop: 12 }}>
+            <GuaranteeCard
+              order={order}
+              busy={actions.busy}
+              onFile={actions.fileGuarantee}
+              onCheck={actions.checkGuarantee}
+            />
+          </View>
+        )}
+
+        {historyRows(order).length > 0 && (
           <>
-            <SectionLabel t={t}>{tr('orderDetail.timesTitle')}</SectionLabel>
-            <View
-              style={{
-                backgroundColor: t.card,
-                borderColor: t.border,
-                borderWidth: 1,
-                borderRadius: 20,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-              }}
-            >
-              {!!order.agreedAt && (
-                <InfoRow
-                  icon="check-circle"
-                  label={tr('orderDetail.agreedAt')}
-                  value={formatDate(order.agreedAt)}
-                  t={t}
-                />
-              )}
-              {!!order.completedAt && (
-                <InfoRow
-                  icon="flag"
-                  label={tr('orderDetail.completedAt')}
-                  value={formatDate(order.completedAt)}
-                  t={t}
-                />
-              )}
-            </View>
+            <SectionLabel t={t}>{tr('orderHistory.title')}</SectionLabel>
+            <OrderHistory order={order} />
           </>
         )}
 

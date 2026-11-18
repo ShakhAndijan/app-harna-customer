@@ -45,6 +45,12 @@ export function timeAgo(iso, tr) {
 }
 
 /** Soniya → "1:05" (video davomiyligi). */
+/** Karta muqovasi: video e'londa `video_poster` (bo'lmasa birinchi rasm), boshqasida birinchi rasm. */
+export const listingCover = (listing) =>
+  listing.videoUrl
+    ? (listing.videoPoster ?? listing.photos[0])
+    : (listing.photos[0] ?? listing.videoPoster);
+
 export function formatVideoDuration(seconds) {
   const total = Math.max(0, Math.round(Number(seconds) || 0));
   const m = Math.floor(total / 60);

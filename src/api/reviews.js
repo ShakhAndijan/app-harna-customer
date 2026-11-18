@@ -40,7 +40,7 @@ export const createOrderReview = (orderId, { rating, comment, photoKeys }) =>
 const AVATAR_COLORS = ['#ec4899', '#3b82f6', '#8b5cf6', '#2fa37a', '#e87a45', '#f5c451', '#06b6d4'];
 
 export function mapTopComment(item, index) {
-  const name = item.user?.full_name ?? '';
+  const name = (item.user?.full_name ?? '').trim();
   return {
     name,
     initial: name?.[0]?.toUpperCase() ?? '?',
@@ -70,7 +70,7 @@ export function mapTopOrders(orders) {
     id: order.public_token ?? String(index),
     publicToken: order.public_token ?? null,
     title: order.order_title ?? '',
-    worker: order.worker?.full_name ?? '',
+    worker: (order.worker?.full_name ?? '').trim(),
     workerId: order.worker?.id ?? null,
     rating: order.rating ?? 0,
     photos: order.after_photos ?? [],
@@ -109,7 +109,7 @@ export async function getWorkerReviewsPage(workerId, { page = 1, size = 10 } = {
   });
   return mapPage(data, (r) => ({
     id: `${r.customer?.id ?? 'c'}-${r.created_at}`,
-    title: r.customer?.full_name ?? '',
+    title: (r.customer?.full_name ?? '').trim(),
     category: r.category?.name ?? null,
     workDate: r.created_at ?? null,
     rating: r.rating ?? null,

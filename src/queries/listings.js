@@ -10,6 +10,7 @@ import {
   unlikeListing,
   getListingComments,
   addListingComment,
+  updateListingComment,
   deleteListingComment,
 } from '../api/listings';
 
@@ -153,6 +154,14 @@ export function useAddListingComment(listingId) {
     mutationFn: (body) => addListingComment(listingId, body),
     // Izohlar ro'yxati va kartalardagi izohlar soni yangilanadi.
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings'] }),
+  });
+}
+
+export function useUpdateListingComment(listingId) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ commentId, body }) => updateListingComment(listingId, commentId, body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['listings', 'comments'] }),
   });
 }
 

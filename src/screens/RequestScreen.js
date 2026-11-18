@@ -19,14 +19,19 @@ import SendToModal from './requests/components/SendToModal';
 import OfferModal from './requests/components/OfferModal';
 import RepostModal from './requests/components/RepostModal';
 import DealCard from './requests/components/DealCard';
+import ExtraWorkCard from './orders/components/ExtraWorkCard';
+import ExtrasList from './orders/components/ExtrasList';
+import OrderHistory, { historyRows } from './orders/components/OrderHistory';
+import ArrivalCard from './orders/components/ArrivalCard';
 import OffersSection from './requests/components/OffersSection';
 import MatchComplaintNotice from './requests/components/MatchComplaintNotice';
 import useLiveOrder from './requests/hooks/useLiveOrder';
+import { useOrderTiming } from '../queries/orderTiming';
+import { dayWithWindow, orderWindowLabel } from './requests/arrival';
 import useOrderActions from './requests/hooks/useOrderActions';
 import {
   deadlineNote,
   describeOrder,
-  formatDay,
   isDayValid,
   isOpenOrder,
   offerDay,
@@ -42,6 +47,8 @@ export default function RequestScreen({ orderId, onBack }) {
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
   const { order, loading, failed, refresh } = useLiveOrder(orderId);
+  // Kelish vaqti oralig'i sozlamalarini yuklaydi (matnlar shu davomiylikdan hisoblanadi).
+  useOrderTiming();
   const actions = useOrderActions(orderId, refresh);
   const [priceOpen, setPriceOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -138,8 +145,9 @@ export default function RequestScreen({ orderId, onBack }) {
       : tr('orderFlow.order.takeNeedsDay');
   }
   let whenText = '';
-  if (order.scheduledDate) whenText = formatDay(tr, order.scheduledDate);
-  else if (order.timingKind) whenText = tr(`orderFlow.timing.${order.timingKind}`);
+  if (order.scheduledDate) {
+    whenText = dayWithWindow(tr, order.scheduledDate, orderWindowLabel(order));
+  } else if (order.timingKind) whenText = tr(`orderFlow.timing.${order.timingKind}`);
   const openChat = () => router.push({ pathname: '/chat', params: { orderId: String(order.id) } });
   const openProfile = () =>
     router.push(
@@ -179,6 +187,17 @@ export default function RequestScreen({ orderId, onBack }) {
           busy={actions.busy}
           onAnswer={actions.confirmComplaintAnswer}
         />
+
+        <ArrivalCard order={order} busy={actions.busy} onAnswer={actions.answerArrival} />
+
+        {isActive && !!order.pendingExtra && (
+          <ExtraWorkCard
+            order={order}
+            extra={order.pendingExtra}
+            busy={actions.busy}
+            onDecide={actions.decideExtra}
+          />
+        )}
 
         <View style={[s.card, { backgroundColor: t.card, borderColor: t.border }]}>
           <SummaryRow
@@ -256,6 +275,20 @@ export default function RequestScreen({ orderId, onBack }) {
 
             <Text style={[s.sectionTitle, { color: t.text }]}>{tr('requests.priceSection')}</Text>
             <DealCard order={order} info={info} agreeDay={agreeDay} agreeBlocked={agreeBlocked} />
+
+            {order.extras.length > 0 && (
+              <>
+                <Text style={[s.sectionTitle, { color: t.text }]}>{tr('extraWork.listTitle')}</Text>
+                <ExtrasList extras={order.extras} t={t} />
+              </>
+            )}
+          </>
+        )}
+
+        {historyRows(order).length > 1 && (
+          <>
+            <Text style={[s.sectionTitle, { color: t.text }]}>{tr('orderHistory.title')}</Text>
+            <OrderHistory order={order} />
           </>
         )}
 
@@ -469,8 +502,8 @@ export default function RequestScreen({ orderId, onBack }) {
         order={order}
         busy={actions.busy}
         onClose={() => setPriceOpen(false)}
-        onSubmit={async (price, day) => {
-          if (await actions.offerPrice(price, day)) setPriceOpen(false);
+        onSubmit={async (price, day, windowStart) => {
+          if (await actions.offerPrice(price, day, windowStart)) setPriceOpen(false);
         }}
       />
       <RepostModal

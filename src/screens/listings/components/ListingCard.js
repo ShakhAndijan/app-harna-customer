@@ -4,7 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useAllCategoriesQuery } from '../../../queries/categories';
-import { priceText, encodeImageUri, formatVideoDuration } from '../utils';
+import { priceText, encodeImageUri, formatVideoDuration, listingCover } from '../utils';
 import ListingPhoto from './ListingPhoto';
 import FavoriteButton from './FavoriteButton';
 
@@ -25,11 +25,7 @@ export default function ListingCard({ listing, onPress, width, style }) {
       accessibilityLabel={listing.title}
       style={[s.card, { backgroundColor: t.card, borderColor: t.border, width }, style]}
     >
-      <ListingPhoto
-        uri={listing.photos[0] ?? listing.videoPoster}
-        video={!!listing.videoUrl}
-        style={s.photo}
-      >
+      <ListingPhoto uri={listingCover(listing)} video={!!listing.videoUrl} thumb style={s.photo}>
         {listing.isTop && (
           <View style={[s.badge, { backgroundColor: t.orange }]}>
             <Ionicons name="flame" size={11} color="#fff" />

@@ -4,8 +4,8 @@ import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 
 // Faollik ko'rsatkichlari: buyurtmalar, sevimli ustalar, mijoz reytingi. Olinmagan qiymat — "—".
-// Bitta ixcham karta, ustunlar ingichka chiziq bilan ajratilgan; profil tepa blokining pastki
-// chetiga suzib turadi. `onOrdersPress` berilsa "Buyurtma" ustuni buyurtmalar tarixini ochadi.
+// Uchta alohida kartochka; profil tepa blokining pastki chetiga suzib turadi.
+// `onOrdersPress` berilsa "Buyurtma" kartasi buyurtmalar tarixini ochadi.
 export default function ActivityStats({ stats, onOrdersPress }) {
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
@@ -36,22 +36,22 @@ export default function ActivityStats({ stats, onOrdersPress }) {
   ];
 
   return (
-    <View style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}>
-      {items.map((item, i) => (
+    <View style={styles.row}>
+      {items.map((item) => (
         <TouchableOpacity
           key={item.key}
-          activeOpacity={item.onPress ? 0.7 : 1}
+          activeOpacity={item.onPress ? 0.75 : 1}
           disabled={!item.onPress}
           onPress={item.onPress}
           accessibilityRole={item.onPress ? 'button' : undefined}
-          style={[styles.col, i > 0 && { borderLeftWidth: 1, borderLeftColor: t.border }]}
+          style={[styles.card, { backgroundColor: t.card, borderColor: t.border }]}
         >
-          <View style={styles.valueRow}>
+          <View style={[styles.iconBubble, { backgroundColor: item.color + '22' }]}>
             <MaterialCommunityIcons name={item.icon} size={18} color={item.color} />
-            <Text style={[styles.value, { color: t.text }]} numberOfLines={1}>
-              {item.value}
-            </Text>
           </View>
+          <Text style={[styles.value, { color: t.text }]} numberOfLines={1}>
+            {item.value}
+          </Text>
           <Text
             style={[styles.label, { color: t.muted }]}
             numberOfLines={1}
@@ -67,12 +67,12 @@ export default function ActivityStats({ stats, onOrdersPress }) {
 }
 
 const styles = StyleSheet.create({
+  row: { flexDirection: 'row', gap: 10, marginHorizontal: 20, marginTop: -34 },
   card: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    marginHorizontal: 20,
-    marginTop: -26,
+    flex: 1,
+    alignItems: 'center',
     paddingVertical: 14,
+    paddingHorizontal: 6,
     borderWidth: 1,
     borderRadius: 20,
     shadowColor: '#000',
@@ -81,13 +81,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,
   },
-  col: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
-  valueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  value: { fontWeight: '800', fontSize: 20, letterSpacing: -0.3 },
+  iconBubble: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  value: { fontWeight: '800', fontSize: 21, letterSpacing: -0.3, marginTop: 8 },
   label: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
-    marginTop: 3,
+    marginTop: 2,
     alignSelf: 'stretch',
     textAlign: 'center',
   },

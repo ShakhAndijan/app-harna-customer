@@ -24,6 +24,9 @@ export function orderState(order) {
   }
 }
 
+// Muddat ("deadline") o'tib ketganmi (bo'sh bo'lsa — yo'q).
+export const isExpired = (value) => value != null && toMs(value) <= Date.now();
+
 export const isOpenOrder = (order) => ['pending', 'accepted', 'active'].includes(order.rawStatus);
 
 export const formatPrice = (tr, value) =>

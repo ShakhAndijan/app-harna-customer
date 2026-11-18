@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { appAlert } from '../components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
@@ -8,6 +8,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
 import {
   googleLogin,
+  GoogleLoginError,
   loginCustomer,
   startCustomerAuth,
   verifyCustomerAuth,
@@ -15,7 +16,7 @@ import {
   requestResetPasswordOtp,
   verifyResetPasswordOtp,
 } from '../api/auth';
-import { acceptConsent } from '../api/legal';
+import { getLegalIndex } from '../api/legal';
 import { getSystemInfo } from '../api/stats';
 import { useConsentVersion, useLegalIndex } from '../queries/legal';
 import { saveSession, saveActorType } from '../utils/token';
@@ -65,8 +66,15 @@ export default function LoginScreen({
   const [suggestedName, setSuggestedName] = useState({ firstName: '', lastName: '' });
   // Shaxsiy ma'lumotlarga rozilik belgisi (birinchi qadamda qo'yiladi, keyingi qadamlarda versiya bilan yuboriladi).
   const [consent, setConsent] = useState(false);
+  const queryClient = useQueryClient();
   const legalIndex = useLegalIndex();
   const consentVersion = useConsentVersion();
+  // Kesh (1 soat, diskda 24 soat) va "consent-v1" zaxirasiga ishonmaymiz: kirish ekrani ochilganda
+  // amaldagi rozilik versiyasi serverdan yangidan olinadi.
+  const refetchLegal = legalIndex.refetch;
+  useEffect(() => {
+    refetchLegal();
+  }, [refetchLegal]);
   // Server qaysi kanal va Google'ni yoqqan bo'lsa, faqat o'sha usullar ko'rsatiladi.
   // Ma'lumot kelmasa (offline/xato) — barcha usullar ko'rinadi.
   const { data: systemInfo } = useQuery({
@@ -83,12 +91,52 @@ export default function LoginScreen({
   const [completeLoading, setCompleteLoading] = useState(false);
   const [completeError, setCompleteError] = useState('');
 
-  const finishLogin = async (data, { recordConsent = false } = {}) => {
+  // Rozilik matni yangilangan bo'lsa server so'rovni `consent_required` / `consent_outdated` bilan rad
+  // etadi (kod, chipta va parol urinishi sarflanmaydi). Amaldagi versiyani keshsiz qayta olamiz,
+  // foydalanuvchidan yangi matnga rozilik so'raymiz va `null` — rad etilgan bo'lsa.
+  const askReconsent = async () => {
+    let version;
+    try {
+      const fresh = await queryClient.fetchQuery({
+        queryKey: ['legal', 'index'],
+        queryFn: getLegalIndex,
+        staleTime: 0,
+      });
+      version = fresh.consentVersion;
+    } catch {
+      return null;
+    }
+    setConsent(false);
+    return new Promise((resolve) =>
+      appAlert(t('login.reconsent.title'), t('login.reconsent.message'), [
+        { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(null) },
+        {
+          text: t('login.reconsent.agree'),
+          onPress: () => {
+            setConsent(true);
+            resolve(version);
+          },
+        },
+      ])
+    );
+  };
+
+  // `call(version)` ni joriy versiya bilan bajaradi; rozilik xatosi kelsa yangi versiya bilan bir marta qayta yuboradi.
+  const withConsent = async (call) => {
+    try {
+      return await call(consentVersion);
+    } catch (e) {
+      if (e?.code !== 'consent_required' && e?.code !== 'consent_outdated') throw e;
+      const version = await askReconsent();
+      if (!version) throw new Error(t('login.google.consent_required'));
+      return call(version);
+    }
+  };
+
+  const finishLogin = async (data) => {
     if (data?.access_token) {
       await saveSession({ accessToken: data.access_token, refreshToken: data.refresh_token });
     }
-    // Google (mobil oqim) rozilikni o'zi qabul qilmaydi: belgi kirishdan oldin qo'yilgan, shuni shu yerda qayd etamiz.
-    if (recordConsent) await acceptConsent(consentVersion).catch(() => {});
     await saveActorType(actorType);
     (onLoginSuccess ?? onBack)(actorType);
   };
@@ -114,10 +162,8 @@ export default function LoginScreen({
     try {
       setVerifyLoading(true);
       setVerifyError('');
-      const data = await verifyCustomerAuth(
-        buildIdentifier(identifier, identifierMode),
-        code,
-        consentVersion
+      const data = await withConsent((version) =>
+        verifyCustomerAuth(buildIdentifier(identifier, identifierMode), code, version)
       );
       devLog('[login] verify status:', data?.status);
       if (data?.access_token) {
@@ -148,11 +194,11 @@ export default function LoginScreen({
     try {
       setCompleteLoading(true);
       setCompleteError('');
-      const data = await completeCustomerAuth(ticket, firstName, lastName, consentVersion);
+      const data = await withConsent((version) =>
+        completeCustomerAuth(ticket, firstName, lastName, version)
+      );
       await finishLogin(data);
     } catch (e) {
-      // Rozilik matni yangilangan bo'lsa, amaldagi versiyani qayta olamiz va foydalanuvchi qayta urinadi.
-      if (e?.code === 'consent_outdated') legalIndex.refetch();
       setCompleteError(getErrorMessage(e, t, 'login.registerStep.errors.finishFailed'));
     } finally {
       setCompleteLoading(false);
@@ -164,7 +210,7 @@ export default function LoginScreen({
       setLoginLoading(true);
       setLoginError('');
       const fullPhone = '+998' + phone.replace(/\D/g, '');
-      const data = await loginCustomer(fullPhone, password, consentVersion);
+      const data = await withConsent((version) => loginCustomer(fullPhone, password, version));
       await finishLogin(data);
     } catch (e) {
       setLoginError(getErrorMessage(e, t, 'login.errors.loginFailed'));
@@ -219,15 +265,18 @@ export default function LoginScreen({
   const handleGoogle = async () => {
     try {
       setGoogleLoading(true);
-      const { token, refreshToken } = await googleLogin(actorType);
-      await finishLogin(
-        { access_token: token, refresh_token: refreshToken },
-        { recordConsent: true }
+      const { token, refreshToken } = await withConsent((version) =>
+        googleLogin(actorType, version)
       );
+      // Rozilik versiyasi Google boshlash manzilida yuborilgan: server uni o'zi qayd etadi.
+      await finishLogin({ access_token: token, refresh_token: refreshToken });
     } catch (e) {
-      if (e.message !== 'cancelled') {
-        appAlert(t('common.errorTitle'), getErrorMessage(e, t, 'login.errors.googleFailed'));
-      }
+      if (e?.code === 'cancelled') return;
+      const known = e instanceof GoogleLoginError && e.code !== 'failed';
+      appAlert(
+        t('common.errorTitle'),
+        known ? t(`login.google.${e.code}`) : getErrorMessage(e, t, 'login.errors.googleFailed')
+      );
     } finally {
       setGoogleLoading(false);
     }

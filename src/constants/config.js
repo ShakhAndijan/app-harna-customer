@@ -70,8 +70,7 @@ export const ENDPOINTS = {
   VERIFY_EMAIL_REQUEST_OTP: `${API_BASE_URL}/api/v1/auth/verify-email/request-otp`,
   VERIFY_EMAIL_VERIFY_OTP: `${API_BASE_URL}/api/v1/auth/verify-email/verify-otp`,
   VERIFY_STATUS: `${API_BASE_URL}/api/v1/auth/verify/status`,
-  VERIFY_UPLOAD_URL: `${API_BASE_URL}/api/v1/auth/verify/manual/upload-url`,
-  VERIFY_SUBMIT: `${API_BASE_URL}/api/v1/auth/verify/manual/submit`,
+  VERIFY_START: `${API_BASE_URL}/api/v1/auth/verify/start`,
   TELEGRAM_LINK_STATUS: `${API_BASE_URL}/api/v1/auth/telegram/status`,
   TELEGRAM_LINK: `${API_BASE_URL}/api/v1/auth/telegram/link`,
   AUTH_CHANGE_PHONE_REQUEST_OTP: `${API_BASE_URL}/api/v1/auth/change-phone/request-otp`,
@@ -128,6 +127,7 @@ export const ENDPOINTS = {
     `${API_BASE_URL}/api/v1/workers/${workerId}/completed-jobs?page=${page}&size=${size}`,
   SYSTEM_STATS: `${API_BASE_URL}/api/v1/system/stats`,
   SYSTEM_INFO: `${API_BASE_URL}/api/v1/system/info`,
+  SYSTEM_ORDER_TIMING: `${API_BASE_URL}/api/v1/system/order-timing`,
   REGION_NEAREST: (lat, lon) => `${API_BASE_URL}/api/v1/regions/nearest?lat=${lat}&lon=${lon}`,
   ANALYTICS_EVENTS: `${API_BASE_URL}/api/v1/analytics/events`,
   TOP_COMMENTS: (limit = 10) => `${API_BASE_URL}/api/v1/reviews/top-comments?limit=${limit}`,
@@ -145,6 +145,7 @@ export const ENDPOINTS = {
     `${API_BASE_URL}/api/v1/orders/me/customer?limit=${limit}&offset=${offset}`,
   PUBLIC_ORDER: (token) => `${API_BASE_URL}/api/v1/orders/public/${encodeURIComponent(token)}`,
   ORDER_DETAIL: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}`,
+  ORDER_AGAIN: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/again`,
   ORDER_PAYMENT: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/payment`,
   ORDER_CHAT: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/chat`,
   ORDER_CHAT_READ: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/chat/read`,
@@ -163,6 +164,12 @@ export const ENDPOINTS = {
   ORDER_STAGES: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/stages`,
   ORDER_STAGE_CONFIRM: (orderId, stageId) =>
     `${API_BASE_URL}/api/v1/orders/${orderId}/stages/${stageId}/confirm`,
+  ORDER_EXTRA_DECISION: (orderId, extraId) =>
+    `${API_BASE_URL}/api/v1/orders/${orderId}/extras/${extraId}/decision`,
+  ORDER_ARRIVAL_CHECK: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/arrival-check`,
+  ORDER_GUARANTEE_CLAIM: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/guarantee-claim`,
+  ORDER_GUARANTEE_CHECK: (orderId) =>
+    `${API_BASE_URL}/api/v1/orders/${orderId}/guarantee-claim/check`,
   PAYMENT_PROVIDERS: `${API_BASE_URL}/api/v1/payments/providers`,
   ORDER_COMPLAINT_ANSWER: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/complaint/answer`,
   ORDER_WORK_NOT_DONE: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/work-not-done`,

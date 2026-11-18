@@ -82,6 +82,8 @@ function ReelPage({
           width={width}
           height={height}
           active={active}
+          duration={listing.videoDuration}
+          barBottom={insets.bottom}
         />
       ) : photos.length > 0 ? (
         <FlatList
@@ -264,26 +266,16 @@ function ReelPage({
                     </View>
                   )}
                 </View>
-                {(!!worker.nickname || !!ago) && (
+                {!!ago && (
                   <View style={s.subRow}>
-                    {!!worker.nickname && (
-                      <Text style={[s.nick, { flexShrink: 1 }]} numberOfLines={1}>
-                        @{worker.nickname}
-                      </Text>
-                    )}
-                    {!!worker.nickname && !!ago && <View style={s.dot} />}
-                    {!!ago && (
-                      <>
-                        <MaterialCommunityIcons
-                          name="clock-outline"
-                          size={12}
-                          color="rgba(255,255,255,0.6)"
-                        />
-                        <Text style={s.nick} numberOfLines={1}>
-                          {ago}
-                        </Text>
-                      </>
-                    )}
+                    <MaterialCommunityIcons
+                      name="clock-outline"
+                      size={12}
+                      color="rgba(255,255,255,0.6)"
+                    />
+                    <Text style={s.ago} numberOfLines={1}>
+                      {ago}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -399,8 +391,7 @@ const s = StyleSheet.create({
   },
   rating: { color: GOLD, fontSize: 12, fontWeight: '800' },
   subRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
-  nick: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
-  dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.45)' },
+  ago: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 10 },
   title: { flexShrink: 1, color: '#fff', fontSize: 19, fontWeight: '800', lineHeight: 24 },
   descWrap: { marginTop: 5 },

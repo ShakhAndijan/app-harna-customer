@@ -20,8 +20,14 @@ import EstimateCard from '../../orders/components/EstimateCard';
 import { parsePrice } from '../hooks/useOrderActions';
 import Avatar from '../../../components/Avatar';
 import SectionError from '../../zakazchi-main/components/SectionError';
-import { formatDay, formatDeadline, formatPrice } from '../utils';
+import { formatDeadline, formatPrice } from '../utils';
+import { dayWithWindow, windowLabel } from '../arrival';
+import { useOrderTiming } from '../../../queries/orderTiming';
 import { pollEvery } from '../../../utils/realtime';
+
+// Taklifdagi ish sanasi va (bo'lsa) usta kelish vaqti oralig'i: "19-Noy, 13:00–14:00".
+const offerWhen = (tr, offer) =>
+  dayWithWindow(tr, offer.offerDate, windowLabel(offer.windowStart, null, null));
 
 const AVATAR_COLORS = ['#2fa37a', '#e87a45', '#3f7fd4', '#ec4899', '#8b5cf6', '#f5c451', '#06b6d4'];
 
@@ -32,6 +38,7 @@ export default function OffersSection({ orderId, chooseUntil, onChanged }) {
   const { t: tr } = useLanguage();
   const router = useRouter();
   const queryClient = useQueryClient();
+  useOrderTiming();
   const [busyId, setBusyId] = useState(null);
   const [priceFor, setPriceFor] = useState(null);
 
@@ -62,9 +69,7 @@ export default function OffersSection({ orderId, chooseUntil, onChanged }) {
       message: [
         tr('orderFlow.match.chooseBody'),
         tr('orderFlow.match.choosePrice', { price: formatPrice(tr, offer.price) }),
-        offer.offerDate
-          ? tr('orderFlow.match.chooseDay', { date: formatDay(tr, offer.offerDate) })
-          : null,
+        offer.offerDate ? tr('orderFlow.match.chooseDay', { date: offerWhen(tr, offer) }) : null,
       ]
         .filter(Boolean)
         .join('\n\n'),
@@ -196,7 +201,7 @@ export default function OffersSection({ orderId, chooseUntil, onChanged }) {
                 <View style={s.line}>
                   <MaterialCommunityIcons name="calendar-month-outline" size={16} color={t.muted} />
                   <Text style={[s.lineTxt, { color: t.text }]}>
-                    {tr('orderFlow.match.offerDay', { date: formatDay(tr, offer.offerDate) })}
+                    {tr('orderFlow.match.offerDay', { date: offerWhen(tr, offer) })}
                   </Text>
                 </View>
               )}

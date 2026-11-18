@@ -20,6 +20,14 @@ export function formatYears(tr, n) {
 // 1234567 → "1 234 567"
 export const formatNumber = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
+// ISO sana-vaqt → "30.10.2026, 14:05" (qurilma vaqt mintaqasida); noto'g'ri qiymatda bo'sh matn.
+export function formatDateTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // ISO sana → "30.10.2026" (qurilma vaqt mintaqasida); noto'g'ri qiymatda bo'sh matn.
 export function formatDate(iso) {
   const d = new Date(iso);

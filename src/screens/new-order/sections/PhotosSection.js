@@ -5,7 +5,15 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { MAX_PHOTOS } from '../constants';
 import { common } from '../styles';
 
-export default function PhotosSection({ photos, pickPhotos, removePhoto, setPreviewIndex }) {
+export default function PhotosSection({
+  photos,
+  keptPhotos = [],
+  pickPhotos,
+  removePhoto,
+  removeKept,
+  setPreviewIndex,
+}) {
+  const total = photos.length + keptPhotos.length;
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
 
@@ -15,12 +23,30 @@ export default function PhotosSection({ photos, pickPhotos, removePhoto, setPrev
       <Text style={[common.label, { color: t.text }]}>{tr('newOrder.photosLabel')}</Text>
       <Text style={[common.hint, { color: t.muted }]}>{tr('newOrder.photosHint')}</Text>
       <View style={s.photoGrid}>
-        {photos.map((uri, index) => (
+        {keptPhotos.map((uri, index) => (
           <TouchableOpacity
             key={uri}
             style={s.photoTile}
             activeOpacity={0.85}
             onPress={() => setPreviewIndex(index)}
+          >
+            <Image source={{ uri }} style={s.photoTileImg} />
+            <TouchableOpacity
+              onPress={() => removeKept(uri)}
+              activeOpacity={0.8}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={s.photoRemoveBtn}
+            >
+              <MaterialCommunityIcons name="close" size={12} color="#fff" />
+            </TouchableOpacity>
+          </TouchableOpacity>
+        ))}
+        {photos.map((uri, index) => (
+          <TouchableOpacity
+            key={uri}
+            style={s.photoTile}
+            activeOpacity={0.85}
+            onPress={() => setPreviewIndex(keptPhotos.length + index)}
           >
             <Image source={{ uri }} style={s.photoTileImg} />
             <TouchableOpacity
@@ -33,7 +59,7 @@ export default function PhotosSection({ photos, pickPhotos, removePhoto, setPrev
             </TouchableOpacity>
           </TouchableOpacity>
         ))}
-        {photos.length < MAX_PHOTOS && (
+        {total < MAX_PHOTOS && (
           <TouchableOpacity
             onPress={pickPhotos}
             activeOpacity={0.8}
@@ -41,7 +67,7 @@ export default function PhotosSection({ photos, pickPhotos, removePhoto, setPrev
           >
             <MaterialCommunityIcons name="camera-plus-outline" size={22} color={t.orange} />
             <Text style={[s.photoAddTxt, { color: t.muted }]}>
-              {photos.length}/{MAX_PHOTOS}
+              {total}/{MAX_PHOTOS}
             </Text>
           </TouchableOpacity>
         )}

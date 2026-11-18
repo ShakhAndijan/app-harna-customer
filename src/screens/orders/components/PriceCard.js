@@ -17,6 +17,9 @@ export default function PriceCard({ order, t }) {
   const money = (n) => `${formatNumber(Math.round(n))} ${som}`;
   const showHourly = order.priceMode === 'hourly' && order.hourlyRate != null;
   const agreed = order.priceKind === 'agreed';
+  // Tasdiqlangan qo'shimcha ish bo'lsa jami narx (kelishilgan + qo'shimcha) ko'rsatiladi.
+  const hasExtras = agreed && order.extrasTotal > 0 && order.totalPrice != null;
+  const shown = hasExtras ? order.totalPrice : order.price;
 
   return (
     <View style={[s.card, { backgroundColor: t.card, borderColor: t.border }]}>
@@ -24,9 +27,17 @@ export default function PriceCard({ order, t }) {
         <Text style={[s.totalLabel, { color: t.muted }]}>
           {tr(TOTAL_LABEL_KEY[order.priceKind] || TOTAL_LABEL_KEY.agreed)}
         </Text>
-        <Text style={[s.totalValue, { color: order.price != null ? t.text : t.muted }]}>
-          {order.price != null ? money(order.price) : tr('orders.priceTbd')}
+        <Text style={[s.totalValue, { color: shown != null ? t.text : t.muted }]}>
+          {shown != null ? money(shown) : tr('orders.priceTbd')}
         </Text>
+        {hasExtras && (
+          <Text style={[s.extras, { color: t.muted }]}>
+            {tr('extraWork.total', {
+              agreed: formatNumber(Math.round(order.price ?? 0)),
+              extras: formatNumber(Math.round(order.extrasTotal)),
+            })}
+          </Text>
+        )}
       </View>
 
       {showHourly && (
@@ -56,5 +67,6 @@ const s = StyleSheet.create({
   hero: { borderRadius: 14, paddingVertical: 14, paddingHorizontal: 14 },
   totalLabel: { fontSize: 12, fontWeight: '600' },
   totalValue: { fontSize: 26, fontWeight: '800', letterSpacing: -0.4, marginTop: 3 },
+  extras: { fontSize: 12, lineHeight: 17, marginTop: 4 },
   rows: { paddingHorizontal: 4, paddingTop: 8 },
 });

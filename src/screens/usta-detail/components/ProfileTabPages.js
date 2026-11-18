@@ -7,7 +7,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { useListingsFeed } from '../../../queries/listings';
 import { reelsRoute } from '../../../navigation/params';
 import ListingPhoto from '../../listings/components/ListingPhoto';
-import { priceText } from '../../listings/utils';
+import { priceText, listingCover } from '../../listings/utils';
 import { useUstaStyles } from '../styles';
 import EmptyState from './EmptyState';
 import SpecializationSection from './SpecializationSection';
@@ -61,8 +61,9 @@ function ListingTile({ listing, onOpen }) {
       }}
     >
       <ListingPhoto
-        uri={listing.photos[0] ?? listing.videoPoster}
+        uri={listingCover(listing)}
         video={!!listing.videoUrl}
+        thumb
         style={{ width: '100%', aspectRatio: 1 }}
         iconSize={34}
       >
@@ -186,7 +187,12 @@ function WorksTab({ portfolio, completedJobs, loading, onSelectWork }) {
           accessibilityLabel={w.title}
           style={{ width: '32.4%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden' }}
         >
-          <ListingPhoto uri={w.photo} style={{ width: '100%', height: '100%' }} iconSize={26} />
+          <ListingPhoto
+            uri={w.photo}
+            thumb
+            style={{ width: '100%', height: '100%' }}
+            iconSize={26}
+          />
           {w.rating != null && (
             <View style={s.rateBadge}>
               <Ionicons name="star" size={10} color={C.gold} />

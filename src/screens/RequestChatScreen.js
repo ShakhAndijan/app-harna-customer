@@ -15,7 +15,11 @@ import usePolling from './requests/hooks/usePolling';
 import { pollEvery } from '../utils/realtime';
 import useLiveOrder from './requests/hooks/useLiveOrder';
 import useOrderActions from './requests/hooks/useOrderActions';
-import { clockLabel, formatDay, formatPrice, isDayValid, offerDay } from './requests/utils';
+import { clockLabel, formatPrice, isDayValid, offerDay } from './requests/utils';
+import { dayWithWindow, offerWindowLabel, windowLabel } from './requests/arrival';
+import { useOrderTiming } from '../queries/orderTiming';
+import { chatSystemText } from '../i18n/chatSystemTexts';
+import { extraStatusText, extraTone } from './orders/components/ExtrasList';
 import { getErrorMessage } from '../utils/errors';
 
 // Real vaqt ulangan bo'lsa chat zaxira sifatida siyrak so'raladi.
@@ -38,6 +42,8 @@ export default function RequestChatScreen({
   const { t: tr } = useLanguage();
   const { order, refresh: refreshOrder } = useLiveOrder(orderId);
   const actions = useOrderActions(orderId, refreshOrder);
+  // Kelish vaqti oralig'i davomiyligi (taklif kartalaridagi "13:00–14:00" uchun).
+  useOrderTiming();
   const [chat, setChat] = useState(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -84,6 +90,14 @@ export default function RequestChatScreen({
   };
 
   const negotiating = order?.rawStatus === 'accepted';
+  // Tizim xabarlari matni uchun kontekst (kelishuv davom etyaptimi, shikoyat turi) va qo'shimcha ishlar.
+  const threadLive = !!thread?.isActive || workerId == null;
+  const bubbleCtx = {
+    live: negotiating && threadLive,
+    kind: threadLive ? (order?.matchComplaint?.kind ?? null) : 'no_contact',
+    awaiting: threadLive && order?.matchComplaint?.status === 'awaiting_customer',
+    extras: order?.extras ?? [],
+  };
   const workerOffer = negotiating && order.offerBy !== 'customer' && order.offerPrice != null;
   // Aniq ustaga yozilganda: suhbat bor bo'lsa faqat u faol bo'lganda, hali boshlanmagan bo'lsa — taklif turgani uchun mumkin.
   const canSend = workerId != null ? (thread ? thread.isActive : true) : chat ? chat.canSend : true;
@@ -150,7 +164,9 @@ export default function RequestChatScreen({
           {!!offerDayValue && order.offerPrice != null && (
             <View style={[s.dayPill, { backgroundColor: t.card, borderColor: t.border }]}>
               <MaterialCommunityIcons name="calendar-clock" size={14} color={t.muted} />
-              <Text style={[s.dayTxt, { color: t.text }]}>{formatDay(tr, offerDayValue)}</Text>
+              <Text style={[s.dayTxt, { color: t.text }]}>
+                {dayWithWindow(tr, offerDayValue, offerWindowLabel(order))}
+              </Text>
             </View>
           )}
         </View>
@@ -168,7 +184,7 @@ export default function RequestChatScreen({
             <Text style={[s.empty, { color: t.faint }]}>{tr('requests.chatEmpty')}</Text>
           )}
           {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} t={t} tr={tr} />
+            <MessageBubble key={m.id} message={m} t={t} tr={tr} ctx={bubbleCtx} />
           ))}
         </ScrollView>
 
@@ -282,8 +298,8 @@ export default function RequestChatScreen({
         order={order}
         busy={actions.busy}
         onClose={() => setPriceOpen(false)}
-        onSubmit={async (price, day) => {
-          if (await actions.offerPrice(price, day)) {
+        onSubmit={async (price, day, windowStart) => {
+          if (await actions.offerPrice(price, day, windowStart)) {
             setPriceOpen(false);
             loadChat();
           }
@@ -293,15 +309,14 @@ export default function RequestChatScreen({
   );
 }
 
-function MessageBubble({ message: m, t, tr }) {
+function MessageBubble({ message: m, t, tr, ctx }) {
   if (m.kind === 'system') {
-    // Backend ba'zan matn o'rniga kalit (order_accepted) yuboradi: tarjima qilinadi, noma'lum kalit yashiriladi.
+    // Backend matn o'rniga kalit (order_agreed, order_extra_approved...) yuboradi: mijoz nuqtai
+    // nazaridagi matnga o'giriladi, noma'lum kalit yashiriladi.
     let body = m.body;
     if (/^[a-z][a-z0-9_]*$/.test(body)) {
-      const key = `requests.sys.${body}`;
-      const label = tr(key);
-      if (label === key) return null;
-      body = label;
+      body = chatSystemText(tr, body, ctx);
+      if (!body) return null;
     }
     if (!body) return null;
     return (
@@ -314,7 +329,45 @@ function MessageBubble({ message: m, t, tr }) {
 
   const mine = m.from === 'me';
 
+  if (m.kind === 'extra') {
+    // Qo'shimcha ish taklifi: tavsif, narx va (buyurtmadagi `extras[]` dan) joriy holat.
+    const extra = ctx.extras?.find((x) => x.id === m.extraId);
+    return (
+      <View
+        style={[
+          s.offer,
+          {
+            alignSelf: mine ? 'flex-end' : 'flex-start',
+            backgroundColor: t.card,
+            borderColor: t.gold,
+          },
+        ]}
+      >
+        <View style={s.offerHead}>
+          <MaterialCommunityIcons name="hammer-wrench" size={15} color={t.gold} />
+          <Text style={[s.offerLabel, { color: t.muted }]}>{tr('extraWork.chatLabel')}</Text>
+        </View>
+        <Text style={[s.bubbleText, { color: t.text, fontWeight: '600' }]}>
+          {extra?.title || m.body}
+        </Text>
+        {(extra?.price ?? m.offerPrice) != null && (
+          <Text style={[s.offerPrice, { color: t.text }]}>
+            {formatPrice(tr, extra?.price ?? m.offerPrice)}
+          </Text>
+        )}
+        {!!extra && (
+          <Text style={[s.extraStatus, { color: extraTone(t, extra.status) }]}>
+            {extraStatusText(tr, extra)}
+          </Text>
+        )}
+        <Text style={[s.bubbleTime, { color: t.faint }]}>{clockLabel(m.at)}</Text>
+      </View>
+    );
+  }
+
   if (m.kind === 'offer') {
+    // Taklifdagi ish sanasi va kelish vaqti oralig'i (saytdagi chat kartasidek).
+    const offerWhen = dayWithWindow(tr, m.offerDate, windowLabel(m.offerWindowStart, null, null));
     return (
       <View
         style={[
@@ -333,6 +386,12 @@ function MessageBubble({ message: m, t, tr }) {
         <Text style={[s.offerPrice, { color: t.orange }]}>
           {m.offerPrice != null ? formatPrice(tr, m.offerPrice) : m.body}
         </Text>
+        {!!offerWhen && (
+          <View style={s.offerWhen}>
+            <MaterialCommunityIcons name="calendar-clock" size={14} color={t.muted} />
+            <Text style={[s.offerWhenTxt, { color: t.text }]}>{offerWhen}</Text>
+          </View>
+        )}
         <Text style={[s.bubbleTime, { color: t.faint }]}>{clockLabel(m.at)}</Text>
       </View>
     );
@@ -403,6 +462,8 @@ const s = StyleSheet.create({
     borderWidth: 1,
   },
   dayTxt: { fontSize: 12.5, fontWeight: '700' },
+  offerWhen: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  offerWhenTxt: { fontSize: 12.5, fontWeight: '700' },
   actions: {
     flexDirection: 'row',
     gap: 10,
@@ -446,6 +507,7 @@ const s = StyleSheet.create({
   bubble: { maxWidth: '82%', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 9, gap: 3 },
   bubbleText: { fontSize: 14.5, lineHeight: 20 },
   bubbleTime: { fontSize: 10, alignSelf: 'flex-end' },
+  extraStatus: { fontSize: 12, fontWeight: '700', marginTop: 2 },
   offer: {
     borderRadius: 18,
     borderBottomLeftRadius: 6,

@@ -91,6 +91,9 @@ export const ORDER_FLOW = {
       offerDay: 'Ish sanasi',
       offerDayHint: 'Narx shu kun uchun. Qabul qilinsa, buyurtma shu sanaga belgilanadi.',
       dayRequired: 'Sanani tanlang',
+      window: 'Kelish vaqti',
+      windowAny: "Farqi yo'q",
+      windowNone: "Bugungi vaqt oraliqlari o'tib ketgan",
       recall: 'Qaytarib olish',
       recallTitle: 'Buyurtmani qaytarib olasizmi?',
       recallHint:
@@ -262,6 +265,9 @@ export const ORDER_FLOW = {
       offerDay: 'Дата работы',
       offerDayHint: 'Цена — на этот день. Если её примут, заказ назначат на эту дату.',
       dayRequired: 'Выберите дату',
+      window: 'Время прихода',
+      windowAny: 'Не важно',
+      windowNone: 'Сегодняшние интервалы уже прошли',
       recall: 'Забрать заказ',
       recallTitle: 'Забрать заказ?',
       recallHint:
@@ -435,6 +441,9 @@ export const ORDER_FLOW = {
       offerDay: 'Job date',
       offerDayHint: 'The price is for this day. Once taken, the order is booked for it.',
       dayRequired: 'Pick a date',
+      window: 'Arrival time',
+      windowAny: 'Any time',
+      windowNone: "Today's time slots have all passed",
       recall: 'Take back',
       recallTitle: 'Take the order back?',
       recallHint:

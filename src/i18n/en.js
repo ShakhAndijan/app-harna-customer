@@ -1,9 +1,13 @@
 // Ingliz tili tarjimalari. Kalitlar ekran/bo'lim nomlari bo'yicha guruhlangan.
 
 import { ORDER_FLOW } from './orderFlowTexts';
+import { CHAT_SYSTEM } from './chatSystemTexts';
+import { ORDER_SAFETY } from './orderSafetyTexts';
 
 export const en = {
   orderFlow: ORDER_FLOW.en,
+  chatSystem: CHAT_SYSTEM.en,
+  ...ORDER_SAFETY.en,
   common: {
     ok: 'OK',
     close: 'Close',
@@ -53,6 +57,25 @@ export const en = {
       sendCodeFailed: 'Failed to send the code',
       savePasswordFailed: 'Failed to save the password',
       googleFailed: 'Google sign-in failed',
+    },
+    // The consent text was updated: sign-in continues only after the user consents again.
+    reconsent: {
+      title: 'Consent text updated',
+      message:
+        'The personal data consent text has been updated. To continue, please consent to the new text.',
+      agree: 'I agree',
+    },
+    // Reasons for a failed return from Google sign-in (server `reason` → text).
+    google: {
+      consent_required: 'To continue, tick the consent to personal data processing',
+      consent_outdated: 'The consent text was updated. Tick the consent again and retry',
+      email_not_registered:
+        'This Google email is not linked to any account. Sign in with your phone number and code first',
+      google_email_not_verified: 'Your Google email is not verified',
+      user_inactive: 'Your account is inactive. Please contact support',
+      account_deleted:
+        'This account was deleted. To restore it within 30 days, write to support; after that you can register again.',
+      google_unavailable: 'Google sign-in is not working right now. Sign in with phone and code',
     },
     phoneStep: {
       titleUsta: 'Ready to start working?',
@@ -479,9 +502,10 @@ export const en = {
       priceTitle: 'Filter by price',
       author: 'Specialist',
       authorTitle: 'By specialist',
-      authorSearch: 'Nickname, name or phone number',
+      authorSearch: 'Professional: name or phone',
       authorHint: 'Type at least 2 characters',
-      authorEmpty: 'Nobody found',
+      authorEmpty: 'No such professional found',
+      authorPhoneFull: 'Enter the full phone number: 90 123 45 67',
       authorCount: '{n} listings',
       authorClear: 'Clear',
       from: 'From',
@@ -538,6 +562,11 @@ export const en = {
       delete: 'Delete',
       deleteConfirm: 'Delete this comment?',
       owner: 'Specialist',
+      you: 'You',
+      edit: 'Edit',
+      editing: 'Editing comment',
+      editError: 'Could not update the comment',
+      actions: 'Comment actions',
       loadError: 'Could not load comments',
       sendError: 'Comment was not sent',
       deleteError: 'Could not delete the comment',
@@ -708,6 +737,7 @@ export const en = {
       avatarDeleteFailed: 'Failed to delete photo, please try again',
     },
     stats: { orders: 'Orders', favoriteMasters: 'Favorite pros', yourRating: 'Your rating' },
+    groups: { activity: 'MY ACTIVITY', account: 'ACCOUNT', support: 'HELP & SETTINGS' },
     incompleteBanner: {
       title: 'Add your address',
       subtitle: 'Add an address to speed up placing an order',
@@ -732,6 +762,7 @@ export const en = {
       helpCenter: 'Help center',
     },
     logout: 'Log out',
+    theme: 'Theme',
     footer: 'HARNA.uz · version 1.0.1',
   },
   articles: {
@@ -1043,6 +1074,7 @@ export const en = {
     fallback: 'New notification',
     customer: {
       order: {
+        repeat_reminder: 'Need the same job done? Call the professional again',
         accepted: 'A specialist accepted your order',
         cancelled: 'Your order was cancelled',
         completed: 'Your order is complete — rate the specialist',
@@ -1103,6 +1135,10 @@ export const en = {
     review: {
       received: 'You received a new review',
     },
+    verification: {
+      manual_closed:
+        'Identity verification by document photo has ended: your request was closed. Identity is now verified only with MyID.',
+    },
     support: {
       answered: 'Your message has been answered',
     },
@@ -1150,6 +1186,8 @@ export const en = {
     tabList: 'Messages',
     openOrder: 'Open order',
     openListing: 'Open listing',
+    openAgain: 'Order again',
+    openVerify: 'Open verification',
     openAnswer: 'View answer',
     close: 'Close',
     tabSettings: 'Settings',
@@ -1211,35 +1249,44 @@ export const en = {
       title: 'Identity verification',
       subtitle: 'A verified badge appears next to your name — professionals will trust you more.',
       status: {
-        not_submitted: 'Not submitted',
-        pending: 'Under review',
+        not_submitted: 'Not verified',
+        pending: 'In progress',
         approved: 'Verified',
-        rejected: 'Rejected',
+        rejected: 'Not verified',
       },
-      needTitle: 'What you will need',
-      needDoc: 'Photo of your passport or ID card',
-      needDocHint: 'In good light, with the text clearly visible',
-      needSelfie: 'Selfie holding the document',
-      needSelfieHint: 'Your face and the document must both be visible',
       privacyNote: 'Your data is used only for verification and is never shown publicly.',
-      autoTitle: 'Quick verification with MyID',
+      autoTitle: 'Verify with MyID',
       autoBody:
-        'If you have a MyID account, you are verified in seconds — no need to wait for an admin review.',
+        'Your identity is verified through MyID in seconds. No document or selfie upload is needed.',
       autoStart: 'Continue with MyID',
-      autoOr: 'or send the document manually',
-      addPhoto: 'Add photo',
-      slotDocument: 'Document photo',
-      slotSelfie: 'Selfie with document',
-      slotExtra: 'Extra',
-      consentTitle: 'I agree to my data being checked',
-      consentBody:
-        'The document and selfie are used only to verify your identity, stored privately and never shown on your profile — only a "verified" badge appears.',
-      send: 'Send document',
-      resend: 'Send again',
-      needMore: 'At least {count} photos are required',
-      tooLarge: 'The file must not exceed 10 MB',
-      submitted: 'Document sent — please wait for the review',
-      sendFailed: 'Could not send, please try again',
+      steps: {
+        title: 'How it works',
+        one: 'Open the MyID page',
+        oneHint: 'A secure page opens in your browser',
+        two: 'Confirm your identity',
+        twoHint: 'Through MyID in a few seconds',
+        three: 'The badge appears',
+        threeHint: 'A “verified” badge shows next to your name',
+      },
+      approvedBody: 'A “verified” badge is shown next to your name.',
+      soon: {
+        title: 'Verification with MyID is coming soon',
+        body: 'Identity is verified only through MyID. The button will appear here as soon as the connection is live.',
+      },
+      reopen: 'Reopen MyID',
+      pendingHint:
+        'Finish the verification in MyID. If you closed the page, you can open it again.',
+      verifiedNow: 'Your identity is verified',
+      startFailed: 'Could not start verification, please try again',
+      inProgress: 'Verification has already started. Please wait for the result.',
+      providerUnavailable: 'Verification with MyID is coming soon.',
+      alreadyVerified: 'Your identity is already verified.',
+      closed: 'Manual document upload is closed. Verification is only available via MyID.',
+      reasons: {
+        pinfl_already_used: 'Another account is already verified with this PINFL.',
+        verification_state_expired: 'The MyID session timed out — please start again.',
+        default: 'Could not complete the verification',
+      },
     },
     telegram: {
       title: 'Telegram',
@@ -1290,6 +1337,39 @@ export const en = {
       'Nov',
       'Dec',
     ],
+  },
+  // The specialist's extra-work offer (added to the price with the customer's consent).
+  extraWork: {
+    chatLabel: 'Extra work offer',
+    askTitle: 'The specialist proposed extra work',
+    approve: 'I agree',
+    decline: 'Decline',
+    approveTitle: 'Agree to the extra work?',
+    approveConfirm: 'The total price will be {total}',
+    deadline: "Reply by {when}. If you don't, the offer is cancelled.",
+    late: 'The reply deadline has passed — the offer will be cancelled.',
+    approved: 'Extra work confirmed — added to the price',
+    declined: 'Offer declined — the price is unchanged',
+    listTitle: 'Extra work',
+    total: 'Agreed {agreed} + extra {extras} UZS',
+    status: {
+      pending: 'Reply by {when}',
+      approved: 'You agreed',
+      declined: 'You declined',
+      lapsed: 'No reply — the offer was cancelled',
+      closed: 'Closed',
+    },
+  },
+  // Order timeline ("History"): when each step happened.
+  orderHistory: {
+    title: 'History',
+    created: 'Created',
+    listing: 'Listing',
+    accepted: 'Accepted',
+    agreed: 'Agreed',
+    workDone: 'Specialist marked as done',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
   },
   orderDetail: {
     stepSent: 'Sent',
@@ -1366,7 +1446,13 @@ export const en = {
     payChoose: 'Choose a payment provider',
     payOpened: 'Payment window opened. The status will update after you pay.',
     payFailed: "Couldn't start the payment",
-    payProcessing: 'Checking payment',
+    payProcessing: 'Payment is being processed',
+    payRefunded: 'Payment cancelled — the money will be returned to your card',
+    payInProgress: 'A payment is in progress right now — please try again in a few minutes.',
+    payOff: 'Online payment is currently turned off. Please pay in cash.',
+    payNotConnected: 'Online payment is not connected yet.',
+    payBelowMin: 'A single payment must be at least {min} UZS.',
+    payAboveMax: 'A single payment must not exceed {max} UZS.',
     timesTitle: 'Dates',
     agreedAt: 'Agreed',
     completedAt: 'Completed',
@@ -1436,6 +1522,8 @@ export const en = {
     errorSave: 'Could not save the address',
   },
   newOrder: {
+    againFailedTitle: 'Order again',
+    againFailed: "Couldn't load the order details. Please fill in the form manually.",
     headerTitle: 'New order',
     headerSubtitle: 'Pick the service you need and describe it — pros will reach out to you.',
     targetWorkerLabel: 'Selected pro',
@@ -1944,7 +2032,6 @@ export const en = {
     agreeConfirmText: 'The job will start after this.',
     chatPlaceholder: 'Write a message…',
     counterShort: 'Other price',
-    sys: { order_accepted: 'The specialist accepted the order' },
     offerBubble: 'Price offer',
     chatEmpty: 'No messages yet',
     chatClosed: 'Chat is closed',

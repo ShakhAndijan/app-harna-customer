@@ -106,7 +106,8 @@ export default function ZakazchiProfileScreen() {
         {!displayLocation && <IncompleteProfileBanner onPress={openAddress} />}
 
         <MenuCard
-          style={{ paddingTop: 22 }}
+          title={tr('profile.groups.activity')}
+          style={{ paddingTop: 24 }}
           rows={[
             {
               icon: 'format-list-bulleted',
@@ -139,6 +140,19 @@ export default function ZakazchiProfileScreen() {
                 ]
               : []),
             {
+              icon: 'bookmark-outline',
+              label: tr('listings.menuSaved'),
+              color: t.orange,
+              onPress: () => router.push(listingsRoute({ saved: true })),
+            },
+          ]}
+        />
+
+        <MenuCard
+          title={tr('profile.groups.account')}
+          style={{ paddingTop: 20 }}
+          rows={[
+            {
               icon: 'shield-star-outline',
               label: tr('account.menu.rating'),
               value:
@@ -149,29 +163,25 @@ export default function ZakazchiProfileScreen() {
               onPress: go('/my-rating'),
             },
             {
-              icon: 'bookmark-outline',
-              label: tr('listings.menuSaved'),
-              color: t.orange,
-              onPress: () => router.push(listingsRoute({ saved: true })),
-            },
-          ]}
-        />
-
-        <MenuCard
-          style={{ paddingTop: 16 }}
-          rows={[
-            {
               icon: 'domain',
               label: tr('business.menu'),
+              color: t.blue,
               onPress: go('/company'),
             },
             {
               icon: 'shield-lock-outline',
               label: tr('profile.menu.security'),
               value: identityStatus === 'approved' ? tr('account.identityApproved') : undefined,
-              color: identityStatus === 'approved' ? t.green : undefined,
+              color: t.green,
               onPress: go('/security'),
             },
+          ]}
+        />
+
+        <MenuCard
+          title={tr('profile.groups.support')}
+          style={{ paddingTop: 20 }}
+          rows={[
             {
               icon: 'cog-outline',
               label: tr('profile.menu.settings'),
@@ -182,13 +192,14 @@ export default function ZakazchiProfileScreen() {
             {
               icon: 'help-circle-outline',
               label: tr('profile.menu.help'),
+              color: t.blue,
               onPress: go('/help-menu'),
             },
           ]}
         />
 
         <MenuCard
-          style={{ paddingTop: 16 }}
+          style={{ paddingTop: 20 }}
           rows={[{ icon: 'logout', label: tr('profile.logout'), danger: true, onPress: signOut }]}
         />
         <Text

@@ -53,7 +53,7 @@ const mapPlan = (p) => ({
   categoryId: p.category_id,
   category: p.category ?? '',
   workerId: p.worker_id ?? null,
-  workerName: p.worker_name ?? null,
+  workerName: p.worker_name?.trim() || null,
   description: p.description ?? '',
   frequency: p.frequency,
   nextDate: p.next_date ?? null,
