@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "uz.harna.customer",
+      "sha256_cert_fingerprints": [
+        "C8:CC:82:0D:70:96:42:0A:F4:9A:D8:E5:7D:A9:9D:47:A8:BA:6C:5B:9C:02:44:91:8E:DF:A1:DE:55:16:6B:3D"
+      ]
+    }
+  }
+]

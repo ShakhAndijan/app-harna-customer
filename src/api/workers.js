@@ -282,6 +282,7 @@ export function mapWorkerDetail(w) {
     takesOrders: w.takes_orders !== false,
     reviewCount: w.review_count ?? 0,
     completedJobsCount: w.completed_jobs_count ?? 0,
+    likesCount: w.likes_count ?? 0,
     ratingBreakdown: ratingBreakdown && {
       5: ratingBreakdown.five ?? 0,
       4: ratingBreakdown.four ?? 0,

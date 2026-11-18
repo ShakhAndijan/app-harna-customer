@@ -13,7 +13,10 @@
       "bundleIdentifier": "uz.harna.customer",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "associatedDomains": [
+        "applinks:dev.harna.uz"
+      ]
     },
     "android": {
       "package": "uz.harna.customer",
@@ -28,6 +31,33 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "dev.harna.uz",
+              "pathPrefix": "/mutaxassis"
+            },
+            {
+              "scheme": "https",
+              "host": "dev.harna.uz",
+              "pathPrefix": "/listings"
+            },
+            {
+              "scheme": "https",
+              "host": "dev.harna.uz",
+              "pathPrefix": "/maqolalar"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "web": {
@@ -36,7 +66,7 @@
     "plugins": [
       "expo-web-browser",
       "expo-video",
-      "expo-sharing",
+      "expo-sharing",
       "expo-location",
       "expo-secure-store",
       "expo-image",

@@ -123,24 +123,35 @@ export default function RequestChatScreen({
       </View>
 
       {negotiating && (
-        <View style={[s.priceBar, { backgroundColor: t.card, borderBottomColor: t.border }]}>
-          <MaterialCommunityIcons name="cash-multiple" size={18} color={t.orange} />
-          <Text style={[s.priceLabel, { color: t.muted }]} numberOfLines={1}>
-            {order.offerPrice == null
-              ? tr('requests.noOfferYet')
-              : order.offerBy === 'worker'
-                ? tr('requests.offerFromWorker')
-                : tr('requests.offerFromMe')}
-          </Text>
-          {order.offerPrice != null && (
-            <Text style={[s.priceValue, { color: t.orange }]} numberOfLines={1}>
-              {formatPrice(tr, order.offerPrice)}
-              {!!offerDayValue && (
-                <Text style={[s.priceLabel, { color: t.muted }]}>
-                  {`  ·  ${formatDay(tr, offerDayValue)}`}
-                </Text>
-              )}
+        <View
+          style={[s.offerCard, { backgroundColor: t.orange + '14', borderColor: t.orange + '40' }]}
+        >
+          <View style={[s.offerIcon, { backgroundColor: t.orange + '26' }]}>
+            <MaterialCommunityIcons name="handshake-outline" size={20} color={t.orange} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.priceLabel, { color: t.muted }]} numberOfLines={1}>
+              {order.offerPrice == null
+                ? tr('requests.noOfferYet')
+                : order.offerBy === 'worker'
+                  ? tr('requests.offerFromWorker')
+                  : tr('requests.offerFromMe')}
             </Text>
+            {order.offerPrice != null && (
+              <Text
+                style={[s.priceValue, { color: t.orange }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+              >
+                {formatPrice(tr, order.offerPrice)}
+              </Text>
+            )}
+          </View>
+          {!!offerDayValue && order.offerPrice != null && (
+            <View style={[s.dayPill, { backgroundColor: t.card, borderColor: t.border }]}>
+              <MaterialCommunityIcons name="calendar-clock" size={14} color={t.muted} />
+              <Text style={[s.dayTxt, { color: t.text }]}>{formatDay(tr, offerDayValue)}</Text>
+            </View>
           )}
         </View>
       )}
@@ -162,50 +173,68 @@ export default function RequestChatScreen({
         </ScrollView>
 
         {negotiating && !keyboardVisible && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            style={[s.chipsWrap, { borderTopColor: t.border, backgroundColor: t.bg }]}
-            contentContainerStyle={s.chips}
-          >
+          <View style={[s.actions, { borderTopColor: t.border, backgroundColor: t.bg }]}>
+            <TouchableOpacity
+              style={[
+                s.declineBtn,
+                { borderColor: t.red + '55', backgroundColor: t.red + '10' },
+                { opacity: actions.busy ? 0.5 : 1 },
+              ]}
+              activeOpacity={0.8}
+              disabled={actions.busy}
+              onPress={() => actions.confirmDecline(loadChat)}
+              accessibilityRole="button"
+              accessibilityLabel={tr('orderFlow.stage.decline')}
+            >
+              <MaterialCommunityIcons name="close" size={22} color={t.red} />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                s.actionBtn,
+                workerOffer
+                  ? { flex: 1, borderWidth: 1.5, borderColor: t.border, backgroundColor: t.card }
+                  : { flex: 1, backgroundColor: t.orange },
+                { opacity: actions.busy ? 0.6 : 1 },
+              ]}
+              activeOpacity={0.85}
+              disabled={actions.busy}
+              onPress={() => setPriceOpen(true)}
+            >
+              <MaterialCommunityIcons
+                name="cash-edit"
+                size={19}
+                color={workerOffer ? t.text : '#fff'}
+              />
+              <Text
+                style={[s.actionTxt, { color: workerOffer ? t.text : '#fff' }]}
+                numberOfLines={1}
+              >
+                {order.offerPrice != null
+                  ? tr('requests.counterShort')
+                  : tr('orderFlow.stage.offer')}
+              </Text>
+            </TouchableOpacity>
             {workerOffer && (
               <TouchableOpacity
                 style={[
-                  s.chip,
-                  { backgroundColor: t.orange, opacity: actions.busy || !agreeDayOk ? 0.5 : 1 },
+                  s.actionBtn,
+                  {
+                    flex: 1.3,
+                    backgroundColor: t.orange,
+                    opacity: actions.busy || !agreeDayOk ? 0.5 : 1,
+                  },
                 ]}
                 activeOpacity={0.85}
                 disabled={actions.busy || !agreeDayOk}
                 onPress={() => actions.confirmAgree(order)}
               >
-                <MaterialCommunityIcons name="check" size={16} color="#fff" />
-                <Text style={[s.chipText, { color: '#fff' }]}>{tr('orderFlow.stage.agree')}</Text>
+                <MaterialCommunityIcons name="check" size={20} color="#fff" />
+                <Text style={[s.actionTxt, { color: '#fff' }]} numberOfLines={1}>
+                  {tr('orderFlow.stage.agree')}
+                </Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity
-              style={[s.chip, { backgroundColor: t.orange + '14', borderColor: t.orange + '55' }]}
-              activeOpacity={0.8}
-              disabled={actions.busy}
-              onPress={() => setPriceOpen(true)}
-            >
-              <MaterialCommunityIcons name="cash-edit" size={16} color={t.orange} />
-              <Text style={[s.chipText, { color: t.orange }]}>
-                {order.offerPrice != null
-                  ? tr('orderFlow.stage.counter')
-                  : tr('orderFlow.stage.offer')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.chip, { borderColor: t.red + '66' }]}
-              activeOpacity={0.8}
-              disabled={actions.busy}
-              onPress={() => actions.confirmDecline(loadChat)}
-            >
-              <MaterialCommunityIcons name="close-circle-outline" size={16} color={t.red} />
-              <Text style={[s.chipText, { color: t.red }]}>{tr('orderFlow.stage.decline')}</Text>
-            </TouchableOpacity>
-          </ScrollView>
+          </View>
         )}
 
         {canSend ? (
@@ -266,7 +295,21 @@ export default function RequestChatScreen({
 
 function MessageBubble({ message: m, t, tr }) {
   if (m.kind === 'system') {
-    return <Text style={[s.system, { color: t.faint }]}>{m.body}</Text>;
+    // Backend ba'zan matn o'rniga kalit (order_accepted) yuboradi: tarjima qilinadi, noma'lum kalit yashiriladi.
+    let body = m.body;
+    if (/^[a-z][a-z0-9_]*$/.test(body)) {
+      const key = `requests.sys.${body}`;
+      const label = tr(key);
+      if (label === key) return null;
+      body = label;
+    }
+    if (!body) return null;
+    return (
+      <View style={[s.systemPill, { backgroundColor: t.card, borderColor: t.border }]}>
+        <MaterialCommunityIcons name="information-outline" size={14} color={t.muted} />
+        <Text style={[s.system, { color: t.muted }]}>{body}</Text>
+      </View>
+    );
   }
 
   const mine = m.from === 'me';
@@ -283,7 +326,10 @@ function MessageBubble({ message: m, t, tr }) {
           },
         ]}
       >
-        <Text style={[s.offerLabel, { color: t.muted }]}>{tr('requests.offerBubble')}</Text>
+        <View style={s.offerHead}>
+          <MaterialCommunityIcons name="cash-multiple" size={15} color={t.orange} />
+          <Text style={[s.offerLabel, { color: t.muted }]}>{tr('requests.offerBubble')}</Text>
+        </View>
         <Text style={[s.offerPrice, { color: t.orange }]}>
           {m.offerPrice != null ? formatPrice(tr, m.offerPrice) : m.body}
         </Text>
@@ -328,38 +374,90 @@ const s = StyleSheet.create({
   },
   name: { fontWeight: '800', fontSize: 15.5 },
   meta: { fontSize: 12, marginTop: 2 },
-  priceBar: {
+  offerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderBottomWidth: 1,
+    gap: 12,
+    marginHorizontal: 14,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 18,
+    borderWidth: 1,
   },
-  priceLabel: { fontSize: 12 },
-  priceValue: { fontWeight: '800', fontSize: 15 },
-  chipsWrap: { flexGrow: 0, borderTopWidth: 1 },
-  chips: { gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
-  chip: {
+  offerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  priceLabel: { fontSize: 12, fontWeight: '600' },
+  priceValue: { fontWeight: '900', fontSize: 22, letterSpacing: -0.4, marginTop: 1 },
+  dayPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    height: 38,
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  dayTxt: { fontSize: 12.5, fontWeight: '700' },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
     paddingHorizontal: 14,
-    borderRadius: 19,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    paddingTop: 10,
+    paddingBottom: 4,
+    borderTopWidth: 1,
   },
-  chipText: { fontWeight: '700', fontSize: 13 },
+  declineBtn: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtn: {
+    height: 50,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingHorizontal: 10,
+  },
+  actionTxt: { fontWeight: '800', fontSize: 14.5, flexShrink: 1 },
   messages: { padding: 16, gap: 8, flexGrow: 1 },
   empty: { textAlign: 'center', marginTop: 40, fontSize: 13 },
-  system: { alignSelf: 'center', fontSize: 11.5, textAlign: 'center', marginVertical: 4 },
+  systemPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginVertical: 4,
+  },
+  system: { fontSize: 12, fontWeight: '600', textAlign: 'center', flexShrink: 1 },
   bubble: { maxWidth: '82%', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 9, gap: 3 },
   bubbleText: { fontSize: 14.5, lineHeight: 20 },
   bubbleTime: { fontSize: 10, alignSelf: 'flex-end' },
-  offer: { borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 10, gap: 2 },
-  offerLabel: { fontSize: 11 },
-  offerPrice: { fontWeight: '800', fontSize: 18 },
+  offer: {
+    borderRadius: 18,
+    borderBottomLeftRadius: 6,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 2,
+    minWidth: 170,
+  },
+  offerHead: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  offerLabel: { fontSize: 11.5, fontWeight: '600' },
+  offerPrice: { fontWeight: '900', fontSize: 20, letterSpacing: -0.3 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',

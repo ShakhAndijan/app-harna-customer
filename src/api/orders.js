@@ -216,6 +216,11 @@ export async function getRecentOrders(limit = 30) {
   return (batch || []).map(mapOrder);
 }
 
+/** Buyurtma tafsiloti (to'lov holatisiz): ro'yxat javobida bo'lmagan maydonlar (masalan, tavsif) uchun. */
+export async function getOrderBrief(orderId) {
+  return mapOrder(await getJson(ENDPOINTS.ORDER_DETAIL(orderId), 'Buyurtma yuklanmadi'));
+}
+
 // to'lov holati backendda yo'q bo'lishi mumkin (null) — bu xato emas.
 const PAYMENT_STATE_TO_UI = { paid: 'paid', refunded: 'refunded' };
 

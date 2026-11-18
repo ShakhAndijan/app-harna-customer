@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { categoriesQuery } from '../../../queries/categories';
 import { getFavorites } from '../../../api/workers';
 import { markStartup } from '../../../utils/startup';
@@ -35,6 +35,7 @@ function toSection(q) {
 export default function useHomeData() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
 
   const categories = useQuery(categoriesQuery);
   // Kategoriya almashganda kalit o'zgaradi: yangi ro'yxat yuklanguncha loader ko'rinadi.
@@ -54,15 +55,24 @@ export default function useHomeData() {
 
   const queries = { categories, workers, favorites, stats, reviews, summary };
 
-  // Pull-to-refresh: kesh yangi bo'lsa ham hamma bo'lim qayta olinadi.
+  // Pull-to-refresh: kesh yangi bo'lsa ham hamma bo'lim qayta olinadi; tanlangan xizmat (kategoriya)
+  // bekor qilinadi va "Eng zo'r ustalar" umumiy ro'yxatga qaytadi.
   const refresh = useCallback(() => {
     setRefreshing(true);
-    return Promise.allSettled(Object.values(queries).map((q) => q.refetch())).finally(() =>
-      setRefreshing(false)
+    const wasSelected = selectedCategoryId !== null;
+    setSelectedCategoryId(null);
+    const jobs = [categories, favorites, stats, reviews, summary].map((q) => q.refetch());
+    jobs.push(
+      wasSelected
+        ? queryClient.refetchQueries({ queryKey: topWorkersQuery(null).queryKey, exact: true })
+        : workers.refetch()
     );
-    // refetch funksiyalari barqaror; queries obyekti har renderda yangi.
+    return Promise.allSettled(jobs).finally(() => setRefreshing(false));
+    // refetch funksiyalari barqaror; so'rov obyektlari har renderda yangi.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    selectedCategoryId,
+    queryClient,
     categories.refetch,
     workers.refetch,
     favorites.refetch,

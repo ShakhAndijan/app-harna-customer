@@ -217,13 +217,14 @@ export default function PhoneStep({
             <ConsentCheck
               checked={consent}
               error={consentError}
+              round
               onToggle={() => {
                 setConsentError(false);
                 onConsentChange?.(!consent);
               }}
               colors={{
                 text: theme.muted,
-                link: theme.text,
+                link: theme.orange,
                 border: theme.faint ?? theme.muted,
                 active: theme.orange,
               }}

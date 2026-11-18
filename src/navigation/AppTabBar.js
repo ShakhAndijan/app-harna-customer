@@ -1,8 +1,10 @@
-import { View, StyleSheet } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Animated, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeyboardState } from 'react-native-keyboard-controller';
 import BottomNav from '../components/BottomNav';
 import { useTheme } from '../context/ThemeContext';
+import { useReelsChromeHidden } from './reelsChrome';
 
 // Marshrut nomi ↔ BottomNav kaliti. `services` menyuda yo'q — u bosh sahifadan ochiladi, shuning uchun
 // uning ustida "Asosiy" belgilanib turadi.
@@ -24,6 +26,17 @@ export default function AppTabBar({ state, emitter, navigateToTab }) {
   const bottomInset = useSafeAreaInsets().bottom;
   const keyboardVisible = useKeyboardState((st) => st.isVisible);
 
+  // "E'lonlar" tabida rasmga bosilganda menyu sekin pastga tushib yashirinadi (yana bosilsa qaytadi).
+  const chromeHidden = useReelsChromeHidden() && activeRoute.name === 'ads';
+  const [hide] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.timing(hide, {
+      toValue: chromeHidden ? 1 : 0,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  }, [chromeHidden, hide]);
+
   // Klaviatura ochiq paytda menyu yashiriladi: aks holda u klaviatura ustiga ko'tarilib, kontentni yopadi
   // va skrollni to'sadi.
   if (keyboardVisible) return null;
@@ -38,7 +51,19 @@ export default function AppTabBar({ state, emitter, navigateToTab }) {
   };
 
   return (
-    <View pointerEvents="box-none" style={[s.wrap, { height: 130 + bottomInset }]}>
+    <Animated.View
+      pointerEvents={chromeHidden ? 'none' : 'box-none'}
+      style={[
+        s.wrap,
+        {
+          height: 130 + bottomInset,
+          opacity: hide.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+          transform: [
+            { translateY: hide.interpolate({ inputRange: [0, 1], outputRange: [0, 130] }) },
+          ],
+        },
+      ]}
+    >
       <BottomNav
         activeTab={ROUTE_TO_KEY[activeRoute.name]}
         onTabChange={onTabChange}
@@ -47,7 +72,7 @@ export default function AppTabBar({ state, emitter, navigateToTab }) {
         border={t.border}
         muted={t.faint}
       />
-    </View>
+    </Animated.View>
   );
 }
 

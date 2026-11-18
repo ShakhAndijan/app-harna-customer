@@ -155,7 +155,7 @@ export function isoToDate(iso) {
 
 // "2026-10-22" → "22-Okt"; sana bo'sh bo'lsa ''.
 export function formatDay(tr, iso) {
-  if (!iso || !/^d{4}-d{2}-d{2}/.test(iso)) return '';
+  if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return '';
   const d = isoToDate(iso.slice(0, 10));
   const months = tr('orders.monthsShort');
   const month = Array.isArray(months) ? months[d.getMonth()] : String(d.getMonth() + 1);

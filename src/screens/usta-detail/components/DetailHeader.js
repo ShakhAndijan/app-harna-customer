@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Share } from 'react-native';
+import { View, TouchableOpacity, Share } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import { SITE_URL } from '../../../constants/config';
@@ -35,7 +35,8 @@ ${link}`
       <TouchableOpacity onPress={onBack} style={st.iconBtn} activeOpacity={0.7}>
         <Ionicons name="arrow-back" size={22} color={C.txt} />
       </TouchableOpacity>
-      <Text style={st.headerTitle}>{tr('ustaDetail.headerTitle')}</Text>
+      {/* Ism pastdagi profil boshida ko'rinadi, shuning uchun yuqorida sarlavha yo'q */}
+      <View style={{ flex: 1 }} />
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <TouchableOpacity style={st.iconBtn} activeOpacity={0.7} onPress={share}>
           <Feather name="share-2" size={18} color={C.txt} />

@@ -1,10 +1,18 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
-const SIZE = 48;
+const SIZE = 44;
 
 // Reels o'ng tomonidagi yumaloq amal tugmasi: belgi va ostida yozuv (son yoki nom).
-export default function ReelActionButton({ icon, label, active, activeColor, onPress, a11yLabel }) {
+export default function ReelActionButton({
+  icon,
+  label,
+  active,
+  activeColor,
+  fill,
+  onPress,
+  a11yLabel,
+}) {
   return (
     <TouchableOpacity
       onPress={onPress}
@@ -13,8 +21,8 @@ export default function ReelActionButton({ icon, label, active, activeColor, onP
       accessibilityLabel={a11yLabel ?? label}
       style={s.wrap}
     >
-      <View style={s.circle}>
-        <MaterialCommunityIcons name={icon} size={24} color={active ? activeColor : '#fff'} />
+      <View style={[s.circle, !!fill && { backgroundColor: fill, borderColor: fill }]}>
+        <MaterialCommunityIcons name={icon} size={23} color={active ? activeColor : '#fff'} />
       </View>
       {label != null && label !== '' && <Text style={s.label}>{label}</Text>}
     </TouchableOpacity>
@@ -22,18 +30,20 @@ export default function ReelActionButton({ icon, label, active, activeColor, onP
 }
 
 const s = StyleSheet.create({
-  wrap: { alignItems: 'center', gap: 4, width: 64 },
+  wrap: { alignItems: 'center', gap: 3, width: 56 },
   circle: {
     width: SIZE,
     height: SIZE,
     borderRadius: SIZE / 2,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(15,20,28,0.42)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   label: {
     color: '#fff',
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '700',
     textAlign: 'center',
     textShadowColor: 'rgba(0,0,0,0.6)',

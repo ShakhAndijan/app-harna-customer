@@ -18,6 +18,7 @@ import PromptModal from './requests/components/PromptModal';
 import SendToModal from './requests/components/SendToModal';
 import OfferModal from './requests/components/OfferModal';
 import RepostModal from './requests/components/RepostModal';
+import DealCard from './requests/components/DealCard';
 import OffersSection from './requests/components/OffersSection';
 import MatchComplaintNotice from './requests/components/MatchComplaintNotice';
 import useLiveOrder from './requests/hooks/useLiveOrder';
@@ -26,7 +27,6 @@ import {
   deadlineNote,
   describeOrder,
   formatDay,
-  formatPrice,
   isDayValid,
   isOpenOrder,
   offerDay,
@@ -49,6 +49,28 @@ export default function RequestScreen({ orderId, onBack }) {
   const [completeOpen, setCompleteOpen] = useState(false);
   const [repostOpen, setRepostOpen] = useState(false);
 
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Sarlavhadagi "⋯" menyusi: kamdan-kam kerak bo'ladigan amallar ("Rad etish", "Bekor qilish").
+  const negotiating = order?.rawStatus === 'accepted';
+  const menuItems = [];
+  if (order && negotiating && !!order.master) {
+    menuItems.push({
+      key: 'decline',
+      icon: 'close',
+      label: tr('orderFlow.stage.decline'),
+      onPress: () => actions.confirmDecline(),
+    });
+  }
+  if (order && isOpenOrder(order)) {
+    menuItems.push({
+      key: 'cancel',
+      icon: 'trash-can-outline',
+      label: tr('requests.cancelOrder'),
+      onPress: () => setCancelOpen(true),
+    });
+  }
+
   const header = (
     <View style={s.header}>
       <TouchableOpacity
@@ -61,6 +83,18 @@ export default function RequestScreen({ orderId, onBack }) {
       <Text style={[s.title, { color: t.text }]}>
         {tr('requests.headerTitle', { id: orderId })}
       </Text>
+      <View style={{ flex: 1 }} />
+      {menuItems.length > 0 && (
+        <TouchableOpacity
+          style={[s.backBtn, { backgroundColor: t.card, borderColor: t.border }]}
+          onPress={() => setMenuOpen((v) => !v)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={tr('requests.moreActions')}
+        >
+          <MaterialCommunityIcons name="dots-horizontal" size={22} color={t.text} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -82,7 +116,6 @@ export default function RequestScreen({ orderId, onBack }) {
 
   const info = describeOrder(order, tr);
   const note = deadlineNote(order, tr);
-  const negotiating = order.rawStatus === 'accepted';
   const hasWorker = !!order.master && order.rawStatus !== 'pending';
   const canChat = order.rawStatus === 'accepted' || order.rawStatus === 'active';
   const isActive = order.rawStatus === 'active';
@@ -91,6 +124,10 @@ export default function RequestScreen({ orderId, onBack }) {
   // Ommaviy buyurtma: takliflar ro'yxatidan usta tanlanadi.
   const showOffers = order.rawStatus === 'pending' && order.workerId == null && !order.returnedAt;
   const canRepost = order.rawStatus === 'cancelled' && !order.reposted;
+  // Kelishuv paneli (pastda doim ko'rinadi): usta tanlangan va narx kelishilmoqda.
+  const showDealBar = hasWorker && negotiating;
+  const canAgree = negotiating && info.state === 'offer';
+  const hasOffer = order.offerPrice != null;
   // Kelishish uchun taklifdagi sana yaroqli (bugun yoki keyin) bo'lishi kerak.
   const agreeDay = offerDay(order);
   const agreeDayOk = isDayValid(agreeDay);
@@ -122,7 +159,11 @@ export default function RequestScreen({ orderId, onBack }) {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 + bottomInset, gap: 16 }}
+        contentContainerStyle={{
+          paddingHorizontal: 20,
+          paddingBottom: showDealBar ? 24 : 32 + bottomInset,
+          gap: 16,
+        }}
       >
         <StatusBanner info={info} pulsing={info.state === 'pending' || negotiating} />
 
@@ -151,6 +192,7 @@ export default function RequestScreen({ orderId, onBack }) {
             label={tr('requests.summaryAddress')}
             value={order.address}
             t={t}
+            expandable
           />
           {!!whenText && (
             <SummaryRow
@@ -195,111 +237,25 @@ export default function RequestScreen({ orderId, onBack }) {
                   </Text>
                 )}
               </View>
+              {canChat && (
+                <TouchableOpacity
+                  style={[s.chatRound, { backgroundColor: t.blue + '22' }]}
+                  activeOpacity={0.8}
+                  onPress={openChat}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={tr('requests.chat')}
+                >
+                  <MaterialCommunityIcons name="chat-processing-outline" size={22} color={t.blue} />
+                </TouchableOpacity>
+              )}
               <MaterialCommunityIcons name="chevron-right" size={22} color={t.faint} />
             </TouchableOpacity>
 
             <ContactsCard order={order} />
 
             <Text style={[s.sectionTitle, { color: t.text }]}>{tr('requests.priceSection')}</Text>
-            <View style={[s.priceCard, { backgroundColor: t.card, borderColor: t.border }]}>
-              {order.rawStatus === 'accepted' ? (
-                order.offerPrice != null ? (
-                  <>
-                    <Text style={[s.priceLabel, { color: t.muted }]}>
-                      {order.offerBy === 'worker'
-                        ? tr('requests.offerFromWorker')
-                        : tr('requests.offerFromMe')}
-                    </Text>
-                    <Text style={[s.priceValue, { color: t.orange }]}>
-                      {formatPrice(tr, order.offerPrice)}
-                    </Text>
-                    {!!agreeDay && (
-                      <Text style={[s.priceLabel, { color: t.muted }]}>
-                        {tr('orderFlow.match.offerDay', { date: formatDay(tr, agreeDay) })}
-                      </Text>
-                    )}
-                  </>
-                ) : (
-                  <Text style={[s.priceLabel, { color: t.muted }]}>
-                    {tr('requests.noOfferYet')}
-                  </Text>
-                )
-              ) : (
-                <>
-                  <Text style={[s.priceLabel, { color: t.muted }]}>
-                    {tr('requests.agreedLabel')}
-                  </Text>
-                  <Text style={[s.priceValue, { color: t.green }]}>
-                    {order.agreedPrice != null ? formatPrice(tr, order.agreedPrice) : '—'}
-                  </Text>
-                  {!!order.scheduledDate && (
-                    <Text style={[s.priceLabel, { color: t.muted }]}>
-                      {tr('orderFlow.match.offerDay', { date: formatDay(tr, order.scheduledDate) })}
-                    </Text>
-                  )}
-                </>
-              )}
-
-              {negotiating && (
-                <View style={[s.actions, { borderTopColor: t.border }]}>
-                  {info.state === 'offer' && (
-                    <TouchableOpacity
-                      style={[
-                        s.btn,
-                        {
-                          backgroundColor: t.orange,
-                          opacity: actions.busy || !agreeDayOk ? 0.5 : 1,
-                        },
-                      ]}
-                      activeOpacity={0.85}
-                      disabled={actions.busy || !agreeDayOk}
-                      onPress={() => actions.confirmAgree(order)}
-                    >
-                      <MaterialCommunityIcons name="check" size={18} color="#fff" />
-                      <Text style={[s.btnText, { color: '#fff' }]}>
-                        {tr('orderFlow.stage.agree')}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={[
-                      s.btn,
-                      {
-                        backgroundColor: t.orange + '14',
-                        borderColor: t.orange + '55',
-                        borderWidth: 1.5,
-                      },
-                    ]}
-                    activeOpacity={0.8}
-                    disabled={actions.busy}
-                    onPress={() => setPriceOpen(true)}
-                  >
-                    <MaterialCommunityIcons name="cash-edit" size={19} color={t.orange} />
-                    <Text style={[s.btnText, { color: t.orange }]}>
-                      {order.offerPrice != null
-                        ? tr('orderFlow.stage.counter')
-                        : tr('orderFlow.stage.offer')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-              {negotiating && info.state === 'offer' && !!agreeBlocked && (
-                <Text style={[s.blocked, { color: t.red }]}>{agreeBlocked}</Text>
-              )}
-              {negotiating && (
-                <TouchableOpacity
-                  style={s.declineBtn}
-                  activeOpacity={0.6}
-                  disabled={actions.busy}
-                  onPress={() => actions.confirmDecline()}
-                >
-                  <MaterialCommunityIcons name="close-circle-outline" size={17} color={t.red} />
-                  <Text style={[s.declineText, { color: t.red }]}>
-                    {tr('orderFlow.stage.decline')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            <DealCard order={order} info={info} agreeDay={agreeDay} agreeBlocked={agreeBlocked} />
           </>
         )}
 
@@ -405,7 +361,8 @@ export default function RequestScreen({ orderId, onBack }) {
           </View>
         )}
 
-        {canChat && (
+        {/* Usta ko'rinmaydigan holatda ham chatga kirish imkoni qoladi */}
+        {canChat && !hasWorker && (
           <TouchableOpacity
             style={[s.chatBtn, { backgroundColor: t.blue }]}
             activeOpacity={0.85}
@@ -415,18 +372,97 @@ export default function RequestScreen({ orderId, onBack }) {
             <Text style={s.chatBtnText}>{tr('requests.chat')}</Text>
           </TouchableOpacity>
         )}
-
-        {isOpenOrder(order) && (
-          <TouchableOpacity
-            style={[s.cancel, { backgroundColor: t.red + '12' }]}
-            activeOpacity={0.7}
-            onPress={() => setCancelOpen(true)}
-          >
-            <MaterialCommunityIcons name="trash-can-outline" size={18} color={t.red} />
-            <Text style={[s.cancelText, { color: t.red }]}>{tr('requests.cancelOrder')}</Text>
-          </TouchableOpacity>
-        )}
       </ScrollView>
+
+      {showDealBar && (
+        <View
+          style={[
+            s.dealBar,
+            {
+              backgroundColor: t.bg,
+              borderTopColor: t.border,
+              paddingBottom: 12 + bottomInset,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            style={[
+              s.dealBtn,
+              canAgree
+                ? { flex: 1, borderWidth: 1.5, borderColor: t.border, backgroundColor: t.card }
+                : { flex: 1, backgroundColor: t.orange },
+              { opacity: actions.busy ? 0.6 : 1 },
+            ]}
+            activeOpacity={0.85}
+            disabled={actions.busy}
+            onPress={() => setPriceOpen(true)}
+          >
+            <MaterialCommunityIcons name="cash-edit" size={19} color={canAgree ? t.text : '#fff'} />
+            <Text style={[s.dealBtnTxt, { color: canAgree ? t.text : '#fff' }]} numberOfLines={1}>
+              {hasOffer ? tr('requests.counterShort') : tr('orderFlow.stage.offer')}
+            </Text>
+          </TouchableOpacity>
+          {canAgree && (
+            <TouchableOpacity
+              style={[
+                s.dealBtn,
+                {
+                  flex: 1.3,
+                  backgroundColor: t.orange,
+                  opacity: actions.busy || !agreeDayOk ? 0.5 : 1,
+                },
+              ]}
+              activeOpacity={0.85}
+              disabled={actions.busy || !agreeDayOk}
+              onPress={() => actions.confirmAgree(order)}
+            >
+              <MaterialCommunityIcons name="check" size={20} color="#fff" />
+              <Text style={[s.dealBtnTxt, { color: '#fff' }]} numberOfLines={1}>
+                {tr('orderFlow.stage.agree')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {menuOpen && menuItems.length > 0 && (
+        <>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setMenuOpen(false)}
+            accessibilityLabel={tr('common.close')}
+          />
+          <View style={[s.menu, { backgroundColor: t.card2 ?? t.card, borderColor: t.border }]}>
+            {menuItems.map((item, i) => {
+              const danger = item.key === 'cancel' || item.key === 'decline';
+              return (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    s.menuItem,
+                    i > 0 && { borderTopWidth: 1, borderTopColor: t.border },
+                    { opacity: actions.busy ? 0.5 : 1 },
+                  ]}
+                  activeOpacity={0.7}
+                  disabled={actions.busy}
+                  onPress={() => {
+                    setMenuOpen(false);
+                    item.onPress();
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name={item.icon}
+                    size={19}
+                    color={danger ? t.red : t.text}
+                  />
+                  <Text style={[s.menuTxt, { color: danger ? t.red : t.text }]}>{item.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </>
+      )}
 
       <OfferModal
         visible={priceOpen}
@@ -498,15 +534,46 @@ export default function RequestScreen({ orderId, onBack }) {
   );
 }
 
-function SummaryRow({ icon, label, value, t, last }) {
-  return (
-    <View style={[s.row, !last && { borderBottomWidth: 1, borderBottomColor: t.border }]}>
+// Uzun qiymat (manzil) qisqartirib ko'rsatiladi; qatorga bosilsa to'liq ochiladi/yopiladi.
+function SummaryRow({ icon, label, value, t, last, expandable }) {
+  const [open, setOpen] = useState(false);
+  const long = !!expandable && !!value && String(value).length > 26;
+  const rowStyle = [
+    s.row,
+    long && open && { alignItems: 'flex-start' },
+    !last && { borderBottomWidth: 1, borderBottomColor: t.border },
+  ];
+  const content = (
+    <>
       <MaterialCommunityIcons name={icon} size={20} color={t.muted} />
       <Text style={[s.rowLabel, { color: t.muted }]}>{label}</Text>
-      <Text style={[s.rowValue, { color: t.text }]} numberOfLines={2}>
+      <Text
+        style={[s.rowValue, { color: t.text }]}
+        numberOfLines={open ? undefined : 2}
+        selectable={open}
+      >
         {value || '—'}
       </Text>
-    </View>
+      {long && (
+        <MaterialCommunityIcons
+          name={open ? 'chevron-up' : 'chevron-down'}
+          size={20}
+          color={t.faint}
+        />
+      )}
+    </>
+  );
+  if (!long) return <View style={rowStyle}>{content}</View>;
+  return (
+    <TouchableOpacity
+      style={rowStyle}
+      activeOpacity={0.7}
+      onPress={() => setOpen((v) => !v)}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+    >
+      {content}
+    </TouchableOpacity>
   );
 }
 
@@ -539,7 +606,6 @@ const s = StyleSheet.create({
     padding: 12,
   },
   noteTxt: { flex: 1, fontSize: 12.5, lineHeight: 18 },
-  blocked: { fontSize: 12.5, lineHeight: 18, marginTop: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13 },
   rowLabel: { fontSize: 12.5, width: 74 },
   rowValue: { flex: 1, fontSize: 13.5, fontWeight: '600', textAlign: 'right' },
@@ -554,10 +620,6 @@ const s = StyleSheet.create({
   },
   workerName: { fontWeight: '800', fontSize: 15.5 },
   workerLink: { fontSize: 12.5, fontWeight: '600', marginTop: 3 },
-  priceCard: { borderRadius: 18, borderWidth: 1, padding: 16, gap: 6 },
-  priceLabel: { fontSize: 12.5 },
-  priceValue: { fontWeight: '800', fontSize: 24 },
-  actions: { gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
   btn: {
     minHeight: 50,
     paddingVertical: 8,
@@ -577,15 +639,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  declineBtn: {
-    height: 40,
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  declineText: { fontWeight: '600', fontSize: 13.5 },
   chatBtn: {
     height: 52,
     borderRadius: 15,
@@ -595,13 +648,50 @@ const s = StyleSheet.create({
     gap: 8,
   },
   chatBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  cancel: {
-    height: 48,
-    borderRadius: 14,
+  chatRound: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dealBar: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  dealBtn: {
+    height: 52,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 7,
+    paddingHorizontal: 10,
   },
-  cancelText: { fontWeight: '700', fontSize: 14.5 },
+  dealBtnTxt: { fontWeight: '800', fontSize: 15, flexShrink: 1 },
+  menu: {
+    position: 'absolute',
+    top: 56,
+    right: 20,
+    minWidth: 190,
+    borderRadius: 14,
+    borderWidth: 1,
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  menuTxt: { fontWeight: '700', fontSize: 14 },
 });

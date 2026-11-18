@@ -1,4 +1,13 @@
-import { View, Text, StyleSheet, ActivityIndicator, AppState } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+  AppState,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import { useState, useEffect } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -66,74 +75,90 @@ export default function CodeStep({
     if (onResend) await onResend();
   };
 
+  // Klaviatura ochiq bo'lganda ham pastdagi "boshqa yo'l" kartasi ko'rinishi va bosilishi uchun sahifa suriladi.
   return (
-    <View style={styles.container}>
-      <BackBtn onPress={handleBack} />
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.container}>
+          <BackBtn onPress={handleBack} />
 
-      <View style={styles.header}>
-        <BrandLogo width={280} dark />
-        <Text style={styles.title}>{t('login.codeStep.title')}</Text>
-        <Text style={styles.subtitle}>
-          {email ? (
-            <Text style={styles.phone}>{email}</Text>
-          ) : (
-            <Text style={styles.phone}>+998 {formatPhone(phone)}</Text>
-          )}{' '}
-          {email ? t('login.codeStep.subtitleEmail') : t('login.codeStep.subtitle')}
-        </Text>
-      </View>
-
-      <OtpInput value={code} onChange={setCode} length={6} />
-
-      {!!error && <Text style={styles.errorText}>{error}</Text>}
-      {!!resendError && <Text style={styles.errorText}>{resendError}</Text>}
-
-      {!!devCode && (
-        <Text style={styles.devCode}>
-          {t('login.codeStep.devCode')} <Text style={styles.devCodeVal}>{devCode}</Text>
-        </Text>
-      )}
-
-      <Text style={styles.timerText}>
-        {timer > 0 ? (
-          <>
-            {t('login.codeStep.resendIn')}{' '}
-            <Text style={styles.timerCount}>00:{String(timer).padStart(2, '0')}</Text>
-          </>
-        ) : resendLoading ? (
-          <ActivityIndicator size="small" color={COLORS.orange} />
-        ) : (
-          <Text style={styles.resend} onPress={resend}>
-            {t('login.codeStep.resendNow')}
-          </Text>
-        )}
-      </Text>
-
-      <PrimaryBtn
-        label={t('common.confirm')}
-        disabled={code.length < 6 || confirmLoading}
-        icon={confirmLoading ? <ActivityIndicator size="small" color={COLORS.white} /> : undefined}
-        onPress={() => onConfirm?.(code)}
-      />
-
-      {!!onAltLogin && (
-        <View style={styles.altLoginCard}>
-          <View style={styles.altLoginIcon}>
-            <Ionicons name="key-outline" size={18} color={COLORS.orange} />
-          </View>
-          <View style={styles.altLoginTextWrap}>
-            <Text style={styles.altLogin} onPress={onAltLogin}>
-              {t('login.codeStep.altLogin')}
+          <View style={styles.header}>
+            <BrandLogo width={280} dark />
+            <Text style={styles.title}>{t('login.codeStep.title')}</Text>
+            <Text style={styles.subtitle}>
+              {email ? (
+                <Text style={styles.phone}>{email}</Text>
+              ) : (
+                <Text style={styles.phone}>+998 {formatPhone(phone)}</Text>
+              )}{' '}
+              {email ? t('login.codeStep.subtitleEmail') : t('login.codeStep.subtitle')}
             </Text>
-            <Text style={styles.altLoginHint}>{t('login.codeStep.altLoginHint')}</Text>
           </View>
+
+          <OtpInput value={code} onChange={setCode} length={6} />
+
+          {!!error && <Text style={styles.errorText}>{error}</Text>}
+          {!!resendError && <Text style={styles.errorText}>{resendError}</Text>}
+
+          {!!devCode && (
+            <Text style={styles.devCode}>
+              {t('login.codeStep.devCode')} <Text style={styles.devCodeVal}>{devCode}</Text>
+            </Text>
+          )}
+
+          <Text style={styles.timerText}>
+            {timer > 0 ? (
+              <>
+                {t('login.codeStep.resendIn')}{' '}
+                <Text style={styles.timerCount}>00:{String(timer).padStart(2, '0')}</Text>
+              </>
+            ) : resendLoading ? (
+              <ActivityIndicator size="small" color={COLORS.orange} />
+            ) : (
+              <Text style={styles.resend} onPress={resend}>
+                {t('login.codeStep.resendNow')}
+              </Text>
+            )}
+          </Text>
+
+          <PrimaryBtn
+            label={t('common.confirm')}
+            disabled={code.length < 6 || confirmLoading}
+            icon={
+              confirmLoading ? <ActivityIndicator size="small" color={COLORS.white} /> : undefined
+            }
+            onPress={() => onConfirm?.(code)}
+          />
+
+          {!!onAltLogin && (
+            <View style={styles.altLoginCard}>
+              <View style={styles.altLoginIcon}>
+                <Ionicons name="key-outline" size={18} color={COLORS.orange} />
+              </View>
+              <View style={styles.altLoginTextWrap}>
+                <Text style={styles.altLogin} onPress={onAltLogin}>
+                  {t('login.codeStep.altLogin')}
+                </Text>
+                <Text style={styles.altLoginHint}>{t('login.codeStep.altLoginHint')}</Text>
+              </View>
+            </View>
+          )}
         </View>
-      )}
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  scroll: { flexGrow: 1, paddingBottom: 24 },
   container: {
     flex: 1,
     paddingHorizontal: 26,

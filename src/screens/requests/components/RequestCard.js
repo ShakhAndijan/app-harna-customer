@@ -1,63 +1,33 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { useQuery } from '@tanstack/react-query';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import Avatar from '../../../components/Avatar';
+import { getOrderBrief } from '../../../api/orders';
+import { timeAgo } from '../../listings/utils';
 import { describeOrder, formatPrice } from '../utils';
 
-const STEP_KEYS = ['requests.stepSearch', 'requests.stepTalk', 'requests.stepWork'];
+const STEPS = 3;
 const STEP_OF = { pending: 0, returned: 0, negotiating: 1, offer: 1, active: 2, workDone: 2 };
 
-// Buyurtma bosqichlari: qidiruv → kelishuv → ish. Joriy bosqich holat rangida ajratiladi.
-function Progress({ current, color, t, tr }) {
+// Bosqichlar (qidiruv → kelishuv → ish): kichik bo'lakli chiziq.
+function Progress({ current, color, t }) {
   return (
     <View style={s.steps}>
-      {STEP_KEYS.map((key, i) => {
-        const isCurrent = i === current;
-        return (
-          <View key={key} style={s.step}>
-            <View style={s.track}>
-              <View
-                style={[
-                  s.line,
-                  { backgroundColor: i <= current ? color : t.border },
-                  i === 0 && s.hidden,
-                ]}
-              />
-              <View
-                style={[
-                  s.dot,
-                  isCurrent
-                    ? { backgroundColor: color, borderColor: color + '55', borderWidth: 4 }
-                    : { backgroundColor: i < current ? color : t.card3 },
-                ]}
-              />
-              <View
-                style={[
-                  s.line,
-                  { backgroundColor: i < current ? color : t.border },
-                  i === STEP_KEYS.length - 1 && s.hidden,
-                ]}
-              />
-            </View>
-            <Text
-              style={[
-                s.stepTxt,
-                { color: isCurrent ? t.text : t.faint, fontWeight: isCurrent ? '800' : '600' },
-              ]}
-              numberOfLines={1}
-            >
-              {tr(key)}
-            </Text>
-          </View>
-        );
-      })}
+      {Array.from({ length: STEPS }, (_, i) => (
+        <View key={i} style={[s.seg, { backgroundColor: i <= current ? color : t.border }]} />
+      ))}
     </View>
   );
 }
 
-// Bosh sahifadagi faol buyurtma kartasi: xizmat nomi, holat belgisi, bosqichlar chizig'i va pastda
-// usta + narx. Usta narx aytib, javobingiz kutilayotgan bo'lsa karta to'q sariq ramkada.
+// Bosh sahifadagi faol buyurtma kartasi (ixcham):
+//  1) holat belgisi (rangli) va yuborilgan vaqt,
+//  2) xizmat nomi va narx,
+//  3) mijoz yozgan ish tavsifi (alohida yumshoq blokda),
+//  4) tanlangan usta (surat va ism) va bosqich chizig'i.
+// Usta narx aytib, javobingiz kutilayotgan bo'lsa karta to'q sariq ramkada.
 export default function RequestCard({ order, title, onPress }) {
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
@@ -71,106 +41,127 @@ export default function RequestCard({ order, title, onPress }) {
   let price = null;
   if (info.state === 'offer') price = order.offerPrice;
   else if (info.state === 'active' || info.state === 'workDone') price = order.agreedPrice;
-  const subtitle = order.task && order.task !== title ? order.task : '';
+
+  // Ro'yxat javobida tavsif kelmasa, u buyurtma tafsilotidan olinadi (keshlanadi, har bir buyurtma uchun bir marta).
+  const needsDetail = !order.description && order.id != null;
+  const detail = useQuery({
+    queryKey: ['orders', 'brief', order.id],
+    queryFn: () => getOrderBrief(order.id),
+    enabled: needsDetail,
+    staleTime: 5 * 60 * 1000,
+  });
+  const desc =
+    order.description ||
+    detail.data?.description ||
+    (order.task && order.task !== title ? order.task : '');
+  const master = order.master || detail.data?.master || '';
+  const masterPhoto = order.masterPhoto ?? detail.data?.masterPhoto ?? null;
+  const ago = timeAgo(order.createdAt, tr);
 
   return (
     <TouchableOpacity
       activeOpacity={0.88}
       onPress={onPress}
       accessibilityRole="button"
-      style={[s.card, { backgroundColor: t.card, borderColor: needsReply ? t.orange : t.border }]}
+      style={[
+        s.card,
+        {
+          backgroundColor: t.card,
+          borderColor: needsReply ? t.orange : t.border,
+        },
+      ]}
     >
-      <View style={s.top}>
-        <View style={[s.icon, { backgroundColor: color + '22' }]}>
-          <MaterialCommunityIcons name={info.icon} size={22} color={color} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[s.title, { color: t.text }]} numberOfLines={1}>
-            {title}
+      <View style={s.head}>
+        <View style={[s.pill, { backgroundColor: color + '1f' }]}>
+          <MaterialCommunityIcons name={info.icon} size={14} color={color} />
+          <Text style={[s.pillTxt, { color }]} numberOfLines={1}>
+            {info.short}
           </Text>
-          {!!subtitle && (
-            <Text style={[s.subtitle, { color: t.muted }]} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          )}
         </View>
-        {needsReply ? (
+        {!!ago && (
+          <Text style={[s.ago, { color: t.faint }]} numberOfLines={1}>
+            {ago}
+          </Text>
+        )}
+      </View>
+
+      <View style={s.titleRow}>
+        <Text style={[s.title, { color: t.text }]} numberOfLines={1}>
+          {title}
+        </Text>
+        {price != null ? (
+          <Text style={[s.price, { color: t.text }]}>{formatPrice(tr, price)}</Text>
+        ) : needsReply ? (
           <View style={[s.badge, { backgroundColor: t.orange }]} />
         ) : (
-          <MaterialCommunityIcons name="chevron-right" size={22} color={t.faint} />
+          <MaterialCommunityIcons name="chevron-right" size={20} color={t.faint} />
         )}
       </View>
 
-      <View style={[s.status, { backgroundColor: color + '1c' }]}>
-        <View style={[s.statusDot, { backgroundColor: color }]} />
-        <Text style={[s.statusTxt, { color }]} numberOfLines={1}>
-          {info.short}
-        </Text>
-      </View>
+      {!!desc && (
+        <View style={[s.descBox, { backgroundColor: t.card2 }]}>
+          <MaterialCommunityIcons name="text-box-outline" size={15} color={t.faint} />
+          <Text style={[s.desc, { color: t.subtext ?? t.muted }]} numberOfLines={2}>
+            {desc}
+          </Text>
+        </View>
+      )}
 
-      <Progress current={STEP_OF[info.state] ?? 0} color={color} t={t} tr={tr} />
-
-      <View style={[s.bottom, { borderTopColor: t.border }]}>
-        {order.master ? (
-          <View style={s.who}>
-            <Avatar letter={order.letter} bgColor={order.color} uri={order.masterPhoto} size={26} />
-            <Text style={[s.whoTxt, { color: t.subtext }]} numberOfLines={1}>
-              {order.master}
-            </Text>
-          </View>
-        ) : (
-          <View style={s.who}>
-            <MaterialCommunityIcons name="account-search-outline" size={20} color={t.faint} />
-            <Text style={[s.whoTxt, { color: t.muted }]} numberOfLines={1}>
-              {tr('requests.noWorkerYet')}
-            </Text>
-          </View>
-        )}
-        {price != null && (
-          <Text style={[s.price, { color: t.text }]}>{formatPrice(tr, price)}</Text>
-        )}
+      <View style={s.foot}>
+        <View style={s.who}>
+          {master ? (
+            <>
+              <Avatar letter={order.letter} bgColor={order.color} uri={masterPhoto} size={24} />
+              <Text style={[s.whoTxt, { color: t.text }]} numberOfLines={1}>
+                {master}
+              </Text>
+            </>
+          ) : (
+            <>
+              <MaterialCommunityIcons name="account-search-outline" size={20} color={t.faint} />
+              <Text style={[s.whoTxt, { color: t.muted }]} numberOfLines={1}>
+                {tr('requests.noWorkerYet')}
+              </Text>
+            </>
+          )}
+        </View>
+        <Progress current={STEP_OF[info.state] ?? 0} color={color} t={t} />
       </View>
     </TouchableOpacity>
   );
 }
 
 const s = StyleSheet.create({
-  card: { borderRadius: 20, borderWidth: 1.5, padding: 14 },
-  top: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  icon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  title: { fontWeight: '800', fontSize: 15.5, letterSpacing: -0.2 },
-  subtitle: { fontSize: 12, marginTop: 2 },
-  badge: { width: 10, height: 10, borderRadius: 5 },
-  status: {
+  card: { borderRadius: 20, borderWidth: 1.5, padding: 12 },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    gap: 5,
+    flexShrink: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
     borderRadius: 999,
-    maxWidth: '100%',
   },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusTxt: { fontSize: 12, fontWeight: '700', flexShrink: 1 },
-  steps: { flexDirection: 'row', marginTop: 14 },
-  step: { flex: 1, alignItems: 'center' },
-  track: { flexDirection: 'row', alignItems: 'center', height: 16, alignSelf: 'stretch' },
-  line: { flex: 1, height: 3, borderRadius: 2 },
-  hidden: { opacity: 0 },
-  dot: { width: 16, height: 16, borderRadius: 8 },
-  stepTxt: { fontSize: 11, marginTop: 6 },
-  bottom: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-  },
-  who: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  whoTxt: { fontSize: 13, fontWeight: '600', flexShrink: 1 },
+  pillTxt: { fontSize: 11.5, fontWeight: '800', flexShrink: 1 },
+  ago: { fontSize: 11.5, fontWeight: '600' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  title: { flex: 1, fontWeight: '800', fontSize: 16, letterSpacing: -0.2 },
   price: { fontSize: 14, fontWeight: '800' },
+  badge: { width: 10, height: 10, borderRadius: 5 },
+  descBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+  },
+  desc: { flex: 1, fontSize: 13, lineHeight: 18 },
+  foot: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
+  who: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  whoTxt: { fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  steps: { width: 56, flexDirection: 'row', gap: 3 },
+  seg: { flex: 1, height: 4, borderRadius: 2 },
 });

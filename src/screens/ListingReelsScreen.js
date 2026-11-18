@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import AppLoader from '../components/AppLoader';
 import { useLanguage } from '../context/LanguageContext';
@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCategoryTreeQuery } from '../queries/categories';
 import { useListingDetail, useListingsFeed } from '../queries/listings';
 import { listingRoute, ustaRoute } from '../navigation/params';
+import { setReelsChromeHidden } from '../navigation/reelsChrome';
 import ReelPage from './listings/components/ReelPage';
 import CommentsSheet from './listings/components/CommentsSheet';
 import ReelFilterSheet from './listings/components/ReelFilterSheet';
@@ -45,6 +46,8 @@ export default function ListingReelsScreen({
   tab = false,
 }) {
   const safeInsets = useSafeAreaInsets();
+  // Ekrandan chiqilganda (boshqa tab/sahifa) yashirilgan menyu va yozuvlar qaytariladi.
+  useFocusEffect(useCallback(() => () => setReelsChromeHidden(false), []));
   const insets = useMemo(
     () => (tab ? { ...safeInsets, bottom: safeInsets.bottom + TAB_BAR_SPACE } : safeInsets),
     [tab, safeInsets]

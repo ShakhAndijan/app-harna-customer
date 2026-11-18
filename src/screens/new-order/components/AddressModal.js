@@ -11,6 +11,8 @@ import {
   Animated,
   Keyboard,
   LayoutAnimation,
+  Platform,
+  StatusBar,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
@@ -93,7 +95,14 @@ function AddressModalContent({
   }, [expanded, dragY, setExpanded]);
   const [sheetH, setSheetH] = useState(0);
   // Telefonning pastki tizim tugmalari (orqaga / uy) paneldagi tugmani yopib qo'ymasligi uchun.
-  const bottomInset = useSafeAreaInsets().bottom;
+  // Modal ichida Android'da inset ba'zan 0 qaytadi (Samsung 3 tugmali navigatsiya), shuning uchun zaxira bor.
+  const insets = useSafeAreaInsets();
+  const bottomInset = Math.max(insets.bottom, Platform.OS === 'android' ? 24 : 0);
+  // 3D / kompas tugmalari status bar ostida qolmasligi uchun (xarita butun ekran).
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0
+  );
   const kbVisible = useKeyboardState((st) => st.isVisible);
   const kbHeight = useKeyboardState((st) => st.height);
   // Klaviatura ochiq bo'lganda panel ko'tarilgani uchun maydonlar ro'yxati qisqartiriladi.
@@ -142,6 +151,7 @@ function AddressModalContent({
           onChange={onMapChange}
           fill
           controlsBottom={controlsBottom}
+          controlsTop={topInset + 12}
           showExpand={false}
           borderRadius={0}
           geocodeQuery={geocodeQuery}

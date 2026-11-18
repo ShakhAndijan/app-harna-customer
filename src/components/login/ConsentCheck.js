@@ -8,7 +8,15 @@ import { documentRoute } from '../../navigation/params';
 // Shaxsiy ma'lumotlarga rozilik belgisi: matndagi "Maxfiylik siyosati" va "rozilik" so'zlari tegishli
 // hujjatni ochadi (backenddagi /legal/privacy va /legal/consent). Belgi foydalanuvchi tomonidan
 // qo'lda qo'yilishi shart — oldindan belgilanmaydi.
-export default function ConsentCheck({ checked, onToggle, error = false, colors = {}, onOpenDoc }) {
+// `round` — yumaloq belgi va yengil (qalin emas) tagi chizilgan havolalar (kirish oynasi uslubi).
+export default function ConsentCheck({
+  checked,
+  onToggle,
+  error = false,
+  colors = {},
+  onOpenDoc,
+  round = false,
+}) {
   const { t } = useLanguage();
   const router = useRouter();
   const c = {
@@ -32,6 +40,7 @@ export default function ConsentCheck({ checked, onToggle, error = false, colors 
         accessibilityState={{ checked }}
         style={[
           s.box,
+          round && s.boxRound,
           { borderColor: error && !checked ? c.error : checked ? c.active : c.border },
           checked && { backgroundColor: c.active },
         ]}
@@ -40,11 +49,17 @@ export default function ConsentCheck({ checked, onToggle, error = false, colors 
       </TouchableOpacity>
       <Text style={[s.text, { color: c.text }]} onPress={onToggle}>
         {t('legal.check.prefix')}
-        <Text style={[s.link, { color: c.link }]} onPress={() => open('privacy')}>
+        <Text
+          style={[s.link, round && s.linkLight, { color: c.link }]}
+          onPress={() => open('privacy')}
+        >
           {t('legal.check.privacy')}
         </Text>
         {t('legal.check.mid')}
-        <Text style={[s.link, { color: c.link }]} onPress={() => open('consent')}>
+        <Text
+          style={[s.link, round && s.linkLight, { color: c.link }]}
+          onPress={() => open('consent')}
+        >
           {t('legal.check.consent')}
         </Text>
         {t('legal.check.suffix')}
@@ -64,6 +79,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 1,
   },
+  boxRound: { width: 26, height: 26, borderRadius: 13 },
   text: { flex: 1, fontSize: 13, lineHeight: 19 },
   link: { fontWeight: '700', textDecorationLine: 'underline' },
+  linkLight: { fontWeight: '400' },
 });

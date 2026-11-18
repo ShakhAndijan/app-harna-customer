@@ -1,5 +1,14 @@
-import { memo, useState } from 'react';
-import { View, Text, Image, FlatList, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
+import { memo, useEffect, useState } from 'react';
+import {
+  Animated,
+  View,
+  Text,
+  Image,
+  FlatList,
+  TouchableOpacity,
+  Pressable,
+  StyleSheet,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -8,6 +17,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { encodeImageUri, priceText, timeAgo } from '../utils';
 import ReelActionButton from './ReelActionButton';
 import ListingVideo from './ListingVideo';
+import { setReelsChromeHidden, useReelsChromeHidden } from '../../../navigation/reelsChrome';
 
 const ORANGE = '#e87a45';
 const GOLD = '#f5c451';
@@ -39,7 +49,29 @@ function ReelPage({
   const [expanded, setExpanded] = useState(false);
   const worker = listing.worker;
   const photos = listing.photos;
-  const location = [worker?.location, timeAgo(listing.createdAt, tr)].filter(Boolean).join(' · ');
+  const ago = timeAgo(listing.createdAt, tr);
+
+  // Rasmga bir marta bosilsa pastdagi yozuvlar va tugmalar (pastki menyu bilan birga) sekin pastga tushib
+  // yashirinadi, yana bosilsa qaytadi. Video bosilganda to'xtash/davom etish ishlaydi, shuning uchun u yerda yo'q.
+  const chromeHidden = useReelsChromeHidden();
+  const [chrome] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.timing(chrome, {
+      toValue: chromeHidden ? 1 : 0,
+      duration: 280,
+      useNativeDriver: true,
+    }).start();
+  }, [chromeHidden, chrome]);
+  // Yashirin holat keyingi rasmli e'lonlarda ham saqlanadi; videoda esa bosish to'xtatish uchun,
+  // shuning uchun video e'longa kelganda yozuvlar qaytadi.
+  const hasVideo = !!listing.videoUrl;
+  useEffect(() => {
+    if (active && hasVideo && chromeHidden) setReelsChromeHidden(false);
+  }, [active, hasVideo, chromeHidden]);
+  const slide = chrome.interpolate({ inputRange: [0, 1], outputRange: [0, 140] });
+  const slideRight = chrome.interpolate({ inputRange: [0, 1], outputRange: [0, 90] });
+  const fade = chrome.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const toggleChrome = () => setReelsChromeHidden(!chromeHidden);
 
   return (
     <View style={{ width, height, backgroundColor: '#0b1117' }}>
@@ -68,11 +100,13 @@ function ReelPage({
           }
           renderItem={({ item: uri }) => (
             // "cover": rasm har qanday ekran nisbatida butun ekranni to'ldiradi (ortiqcha chetlari qirqiladi).
-            <Image
-              source={{ uri: encodeImageUri(uri) }}
-              style={{ width, height }}
-              resizeMode="cover"
-            />
+            <Pressable onPress={toggleChrome} accessibilityRole="button">
+              <Image
+                source={{ uri: encodeImageUri(uri) }}
+                style={{ width, height }}
+                resizeMode="cover"
+              />
+            </Pressable>
           )}
         />
       ) : (
@@ -90,11 +124,15 @@ function ReelPage({
         colors={['rgba(0,0,0,0.55)', 'transparent']}
         style={[s.topShade, { height: insets.top + 110 }]}
       />
-      <LinearGradient
+      <Animated.View
         pointerEvents="none"
-        colors={['transparent', 'rgba(0,0,0,0.88)']}
-        style={[s.bottomShade, { height: height * 0.5 }]}
-      />
+        style={[s.bottomShade, { height: height * 0.5, opacity: fade }]}
+      >
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.88)']}
+          style={StyleSheet.absoluteFill}
+        />
+      </Animated.View>
 
       <View style={[s.topRow, { top: insets.top + 10 }]} pointerEvents="box-none">
         {!!onBack && (
@@ -147,7 +185,13 @@ function ReelPage({
         )}
       </View>
 
-      <View style={[s.rail, { bottom: insets.bottom + 96 }]} pointerEvents="box-none">
+      <Animated.View
+        style={[
+          s.rail,
+          { bottom: insets.bottom + 16, opacity: fade, transform: [{ translateX: slideRight }] },
+        ]}
+        pointerEvents={chromeHidden ? 'none' : 'box-none'}
+      >
         <ReelActionButton
           icon={listing.isLiked ? 'heart' : 'heart-outline'}
           active={listing.isLiked}
@@ -164,99 +208,115 @@ function ReelPage({
         />
         <ReelActionButton
           icon="share-variant-outline"
-          label={tr('listings.reels.share')}
+          a11yLabel={tr('listings.reels.share')}
           onPress={() => onShare(listing)}
         />
         <ReelActionButton
           icon={listing.isFavorite ? 'bookmark' : 'bookmark-outline'}
           active={listing.isFavorite}
           activeColor={GOLD}
-          label={tr(listing.isFavorite ? 'listings.reels.saved' : 'listings.reels.save')}
+          a11yLabel={tr(listing.isFavorite ? 'listings.reels.saved' : 'listings.reels.save')}
           onPress={() => onSave(listing)}
         />
         <ReelActionButton
-          icon="open-in-new"
-          label={tr('listings.reels.details')}
-          onPress={() => onDetails(listing)}
+          icon="phone"
+          fill={t.orange}
+          a11yLabel={tr('listings.reels.contact')}
+          onPress={() => onContact(listing)}
         />
-      </View>
+      </Animated.View>
 
-      <View style={[s.info, { paddingBottom: insets.bottom + 16 }]} pointerEvents="box-none">
-        {!!worker && (
-          <TouchableOpacity
-            onPress={() => onOpenWorker(worker)}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            style={s.workerRow}
-          >
-            <View style={[s.avatar, { backgroundColor: worker.color }]}>
-              {worker.photo ? (
-                <Image
-                  source={{ uri: encodeImageUri(worker.photo) }}
-                  style={StyleSheet.absoluteFill}
-                  resizeMode="cover"
-                />
-              ) : (
-                <Text style={s.avatarTxt}>{worker.initial}</Text>
-              )}
-            </View>
-            <View style={{ flexShrink: 1 }}>
-              <View style={s.nameRow}>
-                <Text style={s.workerName} numberOfLines={1}>
-                  {worker.name}
-                </Text>
-                {worker.rating != null && worker.rating > 0 && (
-                  <>
-                    <Ionicons name="star" size={13} color={GOLD} />
-                    <Text style={s.rating}>{worker.rating.toFixed(1)}</Text>
-                  </>
+      <Animated.View
+        style={[
+          s.info,
+          { paddingBottom: insets.bottom + 16, opacity: fade, transform: [{ translateY: slide }] },
+        ]}
+        pointerEvents={chromeHidden ? 'none' : 'box-none'}
+      >
+        <View style={s.topLine}>
+          {!!worker && (
+            <TouchableOpacity
+              onPress={() => onOpenWorker(worker)}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              style={s.workerRow}
+            >
+              <View style={[s.avatar, { backgroundColor: worker.color }]}>
+                {worker.photo ? (
+                  <Image
+                    source={{ uri: encodeImageUri(worker.photo) }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={s.avatarTxt}>{worker.initial}</Text>
                 )}
               </View>
-              {!!worker.nickname && (
-                <Text style={s.nick} numberOfLines={1}>
-                  @{worker.nickname}
-                </Text>
-              )}
-            </View>
-          </TouchableOpacity>
-        )}
-
-        <Text style={s.title} numberOfLines={2}>
-          {listing.title}
-        </Text>
-        {!!location && (
-          <View style={s.locRow}>
-            <MaterialCommunityIcons name="map-marker-outline" size={15} color="#fff" />
-            <Text style={s.loc} numberOfLines={1}>
-              {location}
-            </Text>
-          </View>
-        )}
-        {!!listing.description && (
-          <Pressable onPress={() => setExpanded((v) => !v)} style={s.descWrap}>
-            <Text style={s.desc} numberOfLines={expanded ? 8 : 2}>
-              {listing.description}
-            </Text>
-          </Pressable>
-        )}
-
-        <View style={s.buyRow}>
-          <Text
-            style={[s.price, { color: listing.price == null ? '#fff' : ORANGE }]}
-            numberOfLines={1}
-          >
-            {priceText(listing, tr)}
-          </Text>
-          <TouchableOpacity
-            onPress={() => onContact(listing)}
-            activeOpacity={0.88}
-            accessibilityRole="button"
-            style={[s.contactBtn, { backgroundColor: t.orange }]}
-          >
-            <Text style={s.contactTxt}>{tr('listings.reels.contact')}</Text>
-          </TouchableOpacity>
+              <View style={{ flexShrink: 1 }}>
+                <View style={s.nameRow}>
+                  <Text style={s.workerName} numberOfLines={1}>
+                    {worker.name}
+                  </Text>
+                  {worker.rating != null && worker.rating > 0 && (
+                    <View style={s.ratingChip}>
+                      <Ionicons name="star" size={11} color={GOLD} />
+                      <Text style={s.rating}>{worker.rating.toFixed(1)}</Text>
+                    </View>
+                  )}
+                </View>
+                {(!!worker.nickname || !!ago) && (
+                  <View style={s.subRow}>
+                    {!!worker.nickname && (
+                      <Text style={[s.nick, { flexShrink: 1 }]} numberOfLines={1}>
+                        @{worker.nickname}
+                      </Text>
+                    )}
+                    {!!worker.nickname && !!ago && <View style={s.dot} />}
+                    {!!ago && (
+                      <>
+                        <MaterialCommunityIcons
+                          name="clock-outline"
+                          size={12}
+                          color="rgba(255,255,255,0.6)"
+                        />
+                        <Text style={s.nick} numberOfLines={1}>
+                          {ago}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
-      </View>
+
+        {/* Sarlavha bosilsa e'lon tafsilotlari ochiladi (alohida "Batafsil" tugmasi yo'q). */}
+        <TouchableOpacity
+          onPress={() => onDetails(listing)}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={tr('listings.reels.details')}
+          style={s.titleRow}
+        >
+          <Text style={s.title} numberOfLines={2}>
+            {listing.title}
+          </Text>
+          <MaterialCommunityIcons name="chevron-right" size={22} color="rgba(255,255,255,0.7)" />
+        </TouchableOpacity>
+
+        {/* Narx va tavsif bitta qatorda: narx to'q sariq qalin, tavsif uning yonida; bosilsa tavsif to'liq ochiladi. */}
+        <Pressable onPress={() => setExpanded((v) => !v)} style={s.descWrap}>
+          <Text style={s.desc} numberOfLines={expanded ? 8 : 1}>
+            <Text style={[s.price, { color: listing.price == null ? '#fff' : ORANGE }]}>
+              {priceText(listing, tr)}
+            </Text>
+            {!!listing.description && (
+              <Text style={s.descMuted}>{`  ·  ${listing.description}`}</Text>
+            )}
+          </Text>
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -312,37 +372,39 @@ const s = StyleSheet.create({
   },
   counterTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
   rail: { position: 'absolute', right: 6, gap: 14, alignItems: 'center' },
-  info: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingLeft: 16, paddingRight: 76 },
-  workerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'flex-start' },
+  info: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingLeft: 16, paddingRight: 72 },
+  topLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  workerRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9 },
   avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 2,
     borderColor: RING,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarTxt: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  workerName: { flexShrink: 1, color: '#fff', fontSize: 15.5, fontWeight: '800' },
-  rating: { color: GOLD, fontSize: 13, fontWeight: '800' },
-  nick: { color: 'rgba(255,255,255,0.7)', fontSize: 12.5, fontWeight: '600', marginTop: 1 },
-  title: { color: '#fff', fontSize: 21, fontWeight: '800', lineHeight: 26, marginTop: 12 },
-  locRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
-  loc: { flexShrink: 1, color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '700' },
-  descWrap: { marginTop: 6 },
-  desc: { color: 'rgba(255,255,255,0.85)', fontSize: 14, lineHeight: 20 },
-  buyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14, marginRight: -60 },
-  price: { flex: 1, fontSize: 22, fontWeight: '900' },
-  contactBtn: {
-    height: 48,
-    paddingHorizontal: 26,
-    borderRadius: 24,
+  avatarTxt: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  workerName: { flexShrink: 1, color: '#fff', fontSize: 14.5, fontWeight: '800' },
+  ratingChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 0,
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 9,
+    backgroundColor: 'rgba(245,196,81,0.18)',
   },
-  contactTxt: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  rating: { color: GOLD, fontSize: 12, fontWeight: '800' },
+  subRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
+  nick: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
+  dot: { width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.45)' },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 10 },
+  title: { flexShrink: 1, color: '#fff', fontSize: 19, fontWeight: '800', lineHeight: 24 },
+  descWrap: { marginTop: 5 },
+  desc: { color: 'rgba(255,255,255,0.82)', fontSize: 13.5, lineHeight: 19 },
+  price: { fontWeight: '800' },
+  descMuted: { color: 'rgba(255,255,255,0.82)', fontWeight: '400' },
 });

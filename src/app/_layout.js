@@ -183,6 +183,14 @@ function AuthRedirect() {
     previous.current = signedIn;
     // Mehmon buyurtmasi: kirgach ham forma ochiq qoladi, buyurtma yaratilgach ekranning o'zi bosh sahifaga o'tadi.
     if (signedIn && pathname === '/guest-order') return;
+    // Havola (App Link) orqali sovuq ishga tushganda ochilgan sahifa bosh sahifa bilan almashtirilmaydi.
+    if (
+      isFirst &&
+      signedIn &&
+      /^\/(usta|mutaxassis|listing|listings|maqolalar|article)\//.test(pathname)
+    ) {
+      return;
+    }
     if (signedIn) router.replace('/home');
     else if (!isFirst) router.replace('/');
   }, [signedIn, navState?.key, router, pathname]);

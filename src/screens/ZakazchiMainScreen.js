@@ -15,16 +15,11 @@ import SectionHeader from './zakazchi-main/components/SectionHeader';
 import SectionLoader from './zakazchi-main/components/SectionLoader';
 import SectionError from './zakazchi-main/components/SectionError';
 import ServiceCategories from './zakazchi-main/components/ServiceCategories';
-import PromoBanners from './zakazchi-main/components/PromoBanners';
 import SeasonalJobs from './zakazchi-main/components/SeasonalJobs';
 import TopWorkers from './zakazchi-main/components/TopWorkers';
-import ListingsCarousel from './zakazchi-main/components/ListingsCarousel';
-import FavoriteWorkers from './zakazchi-main/components/FavoriteWorkers';
 import BenefitsSection from './zakazchi-main/components/BenefitsSection';
 import ReturningCustomerSection from './zakazchi-main/components/ReturningCustomerSection';
 import ReviewsCarousel from './zakazchi-main/components/ReviewsCarousel';
-import TopCategoriesRow from './zakazchi-main/components/TopCategoriesRow';
-import ChampionsSection from './zakazchi-main/components/ChampionsSection';
 import useTabBarSpace from '../navigation/useTabBarSpace';
 
 // Mijoz bosh sahifasi (pastki menyudagi "home" tabi). Boshqa ekranlarga o'tish expo-router orqali.
@@ -95,8 +90,6 @@ export default function ZakazchiMainScreen() {
           />
         </View>
 
-        <TopCategoriesRow style={{ marginTop: 6 }} />
-
         {home.initialLoading ? (
           <View style={{ paddingVertical: 140, alignItems: 'center', justifyContent: 'center' }}>
             <AppLoader size={180} />
@@ -154,23 +147,6 @@ export default function ZakazchiMainScreen() {
                 onRetry={() => home.retry('workers')}
               />
             </View>
-
-            {/* ── Tuman g'oliblari ── */}
-            <ChampionsSection onSelectUsta={openUsta} style={{ marginTop: 24 }} />
-
-            {/* ── Xizmat e'lonlari ── */}
-            <ListingsCarousel style={{ marginTop: 24 }} />
-
-            {/* ── Reklama bannerlari ── */}
-            <PromoBanners style={{ marginTop: 24 }} />
-
-            {/* ── Sevimli ustalar ── */}
-            <FavoriteWorkers
-              state={home.favorites}
-              onSelectUsta={openUsta}
-              onBrowse={() => router.navigate('/services')}
-              onRetry={() => home.retry('favorites')}
-            />
 
             {/* ── Mijoz holatiga qarab: buyurtmasi bor — shaxsiy blok, yo'q — "Nega HARNA?" ── */}
             {!home.summary.loading && (
