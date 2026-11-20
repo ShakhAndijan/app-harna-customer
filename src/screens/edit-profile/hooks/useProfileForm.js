@@ -36,7 +36,9 @@ export default function useProfileForm() {
   }, []);
 
   const isReady =
-    values.firstName.trim().length > 0 && values.lastName.trim().length > 0 && !saving;
+    (values.namesLocked ||
+      (values.firstName.trim().length > 0 && values.lastName.trim().length > 0)) &&
+    !saving;
 
   const save = async () => {
     if (!isReady) return;

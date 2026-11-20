@@ -32,11 +32,15 @@ export default function CategoryPickerModal({
   categories,
   selectedIds,
   onToggle,
+  fits = () => true,
+  // «Taklif» chipi quyi yo'nalishi bor yo'nalishni taklif qilsa, oyna shu yo'nalish ichida ochiladi
+  // (oyna `key` bilan qayta yaratiladi, shuning uchun faqat boshlang'ich qiymat).
+  initialParentId = null,
   t,
   tr,
 }) {
   const [search, setSearch] = useState('');
-  const [parentId, setParentId] = useState(null);
+  const [parentId, setParentId] = useState(initialParentId);
 
   const tree = useMemo(
     () =>
@@ -78,11 +82,18 @@ export default function CategoryPickerModal({
     const picked = hasChildren
       ? c.children.filter((ch) => selectedIds.includes(ch.id)).length
       : Number(selectedIds.includes(c.id));
+    // Narxli va kelishiladigan ish bir buyurtmaga sig'maydi: boshqa turi tanlangan bo'lsa xira turadi, bosilmaydi.
+    const apart = !hasChildren && !fits(c.id);
     return (
       <TouchableOpacity
-        onPress={() => (hasChildren ? openParent(c.id) : onToggle(c.id))}
-        activeOpacity={0.88}
-        style={[s.card, { backgroundColor: tint(c.color) }, picked > 0 && s.cardPicked]}
+        onPress={() => (hasChildren ? openParent(c.id) : apart ? undefined : onToggle(c.id))}
+        activeOpacity={apart ? 1 : 0.88}
+        style={[
+          s.card,
+          { backgroundColor: tint(c.color) },
+          picked > 0 && s.cardPicked,
+          apart && s.apart,
+        ]}
       >
         <View style={s.cardEmoji} pointerEvents="none">
           <Glyph icon={c.icon} size={52} />
@@ -100,28 +111,36 @@ export default function CategoryPickerModal({
         <Text style={s.cardName} numberOfLines={3}>
           {c.name}
         </Text>
+        {apart && <Text style={s.apartTxt}>{tr('platformPrice.separate')}</Text>}
       </TouchableOpacity>
     );
   };
 
   const renderRow = ({ item: c }) => {
     const selected = selectedIds.includes(c.id);
+    const apart = !fits(c.id);
     return (
       <TouchableOpacity
-        onPress={() => onToggle(c.id)}
-        activeOpacity={0.8}
+        onPress={apart ? undefined : () => onToggle(c.id)}
+        activeOpacity={apart ? 1 : 0.8}
         style={[
           s.row,
           { backgroundColor: t.card, borderColor: selected ? t.orange : t.border },
           selected && { backgroundColor: 'rgba(232,122,69,0.08)' },
+          apart && s.apart,
         ]}
       >
         <View style={[s.rowGlyph, { backgroundColor: tint(c.color) }]}>
           <Glyph icon={c.icon} size={22} />
         </View>
-        <Text style={[s.rowName, { color: t.text }]} numberOfLines={2}>
-          {c.name}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.rowName, { color: t.text }]} numberOfLines={2}>
+            {c.name}
+          </Text>
+          {apart && (
+            <Text style={[s.apartRow, { color: t.muted }]}>{tr('platformPrice.separate')}</Text>
+          )}
+        </View>
         <View
           style={[
             s.check,
@@ -304,7 +323,10 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rowName: { flex: 1, fontSize: 14.5, fontWeight: '700' },
+  rowName: { fontSize: 14.5, fontWeight: '700' },
+  apart: { opacity: 0.45 },
+  apartTxt: { color: INK, fontSize: 11.5, fontWeight: '700', marginTop: 2 },
+  apartRow: { fontSize: 11.5, fontWeight: '600', marginTop: 2 },
   check: {
     width: 24,
     height: 24,

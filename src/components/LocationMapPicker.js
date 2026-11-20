@@ -15,6 +15,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { COLORS } from '../constants/colors';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
+import { askLocation } from '../utils/permissions';
 import { YANDEX_MAPS_API_KEY, YANDEX_GEOCODER_API_KEY } from '../constants/config';
 import { devLog } from '../utils/log';
 import { forwardGeocode, normalizeApostrophes } from '../utils/addressSearch';
@@ -378,6 +380,7 @@ export default function LocationMapPicker({
   const webRef = useRef(null);
   const fullRef = useRef(null);
   const { theme } = useTheme();
+  const { t: tr } = useLanguage();
   const dark = darkProp ?? !!theme?.isDark;
   const [locating, setLocating] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -408,9 +411,12 @@ export default function LocationMapPicker({
     stopLocateRef.current?.();
     setLocating(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        if (!silent && permissionTitle) appAlert(permissionTitle, permissionMessage);
+      // Tizim so'rovidan oldin sabab aytiladi; "Keyinroq" bosilsa (null) jim qaytamiz.
+      const granted = await askLocation(tr, 'pin', { again: !silent });
+      if (granted !== true) {
+        if (granted === false && !silent && permissionTitle) {
+          appAlert(permissionTitle, permissionMessage);
+        }
         return;
       }
       // Telefonda joylashuv (yoki Google "Location Accuracy") o'chiq bo'lsa, Android uni yoqish oynasini

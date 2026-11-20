@@ -11,6 +11,8 @@ import {
   GoogleLoginError,
   loginCustomer,
   startCustomerAuth,
+  getTelegramLoginConfig,
+  telegramLogin,
   verifyCustomerAuth,
   completeCustomerAuth,
   requestResetPasswordOtp,
@@ -21,6 +23,7 @@ import { getSystemInfo } from '../api/stats';
 import { useConsentVersion, useLegalIndex } from '../queries/legal';
 import { saveSession, saveActorType } from '../utils/token';
 import { buildIdentifier } from '../utils/identifier';
+import TelegramLoginModal from '../components/login/TelegramLoginModal';
 import PhoneStep from './steps/PhoneStep';
 import PasswordStep from './steps/PasswordStep';
 import ForgotPasswordStep from './steps/ForgotPasswordStep';
@@ -82,6 +85,15 @@ export default function LoginScreen({
     queryFn: getSystemInfo,
     staleTime: 10 * 60 * 1000,
   });
+  // «Telegram bilan davom etish» vidjeti: server yoqqan va bot_id bergan bo'lsa chiqadi (bo'lmasa — eski Telegram-kod tugmasi).
+  const { data: telegramConfig } = useQuery({
+    queryKey: ['auth', 'telegram', 'config'],
+    queryFn: getTelegramLoginConfig,
+    staleTime: 10 * 60 * 1000,
+  });
+  const telegramBotId = telegramConfig?.enabled ? telegramConfig.botId : null;
+  const [telegramOpen, setTelegramOpen] = useState(false);
+  const [telegramLoading, setTelegramLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpChannel, setOtpChannel] = useState('sms');
   const [otpError, setOtpError] = useState('');
@@ -282,6 +294,20 @@ export default function LoginScreen({
     }
   };
 
+  // Vidjet javobi o'zgartirilmagan holda serverga ketadi; rozilik versiyasi bilan (yangi hisob uchun majburiy).
+  const handleTelegramResult = async (data) => {
+    setTelegramOpen(false);
+    try {
+      setTelegramLoading(true);
+      const session = await withConsent((version) => telegramLogin(data, version));
+      await finishLogin(session);
+    } catch (e) {
+      appAlert(t('common.errorTitle'), getErrorMessage(e, t, 'telegramLogin.failed'));
+    } finally {
+      setTelegramLoading(false);
+    }
+  };
+
   const steps = {
     phone: (
       <PhoneStep
@@ -303,6 +329,9 @@ export default function LoginScreen({
         onBack={onBack}
         onGoogle={handleGoogle}
         googleLoading={googleLoading}
+        telegramLoginEnabled={telegramBotId != null}
+        onTelegramLogin={() => setTelegramOpen(true)}
+        telegramLoginLoading={telegramLoading}
         otpChannels={systemInfo?.otpChannels ?? null}
         googleEnabled={systemInfo?.googleLogin !== false}
         actorType={actorType}
@@ -405,6 +434,12 @@ export default function LoginScreen({
       edges={['top', 'left', 'right', 'bottom']}
     >
       {steps[step]}
+      <TelegramLoginModal
+        visible={telegramOpen}
+        botId={telegramBotId}
+        onClose={() => setTelegramOpen(false)}
+        onResult={handleTelegramResult}
+      />
     </SafeAreaView>
   );
 }

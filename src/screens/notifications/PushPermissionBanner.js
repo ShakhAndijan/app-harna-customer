@@ -30,7 +30,7 @@ export default function PushPermissionBanner() {
   const blocked = perm.status === 'denied' && !perm.canAskAgain;
 
   const onPress = async () => {
-    const ok = await requestPushPermission();
+    const ok = await requestPushPermission(tr);
     if (ok && signedIn) await registerPush({ locale: language });
     refresh();
   };

@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { trackEvent } from '../utils/analytics';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -269,6 +270,14 @@ function ReelsPager({ size, insets, initial, feedItems, loadMore, onBack, tools 
     const first = viewableItems.find((v) => v.isViewable);
     if (first) setActiveId(first.item.id);
   }, []);
+
+  // Ko'rish: har bir e'lon ochilganda bir marta hisoblanadi (saytdagidek).
+  const seenListings = useRef(new Set());
+  useEffect(() => {
+    if (activeId == null || seenListings.current.has(activeId)) return;
+    seenListings.current.add(activeId);
+    trackEvent('listing_viewed');
+  }, [activeId]);
 
   const onComments = useCallback((l) => setCommentsFor(l.id), []);
   const renderItem = useCallback(

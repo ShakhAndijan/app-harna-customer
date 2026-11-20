@@ -1,4 +1,4 @@
-import { View, Text } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import PresenceBadge from '../../../components/PresenceBadge';
 import AppLoader from '../../../components/AppLoader';
@@ -7,15 +7,43 @@ import { useUstaStyles } from '../styles';
 import UstaAvatar from './UstaAvatar';
 import { formatDuration } from '../utils';
 
-function Stat({ value, label }) {
+// `onPress` berilsa katak bosiladi (ochiq "yoqtirish"); `active` — shu mijoz allaqachon bosgan.
+function Stat({ value, label, onPress, active, a11yLabel }) {
   const { C } = useUstaStyles();
-  return (
-    <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
-      <Text style={{ color: C.txt, fontWeight: '800', fontSize: 17 }}>{value}</Text>
-      <Text style={{ color: C.dim, fontSize: 11, textAlign: 'center' }} numberOfLines={1}>
+  const body = (
+    <>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+        {onPress ? (
+          <Ionicons
+            name={active ? 'thumbs-up' : 'thumbs-up-outline'}
+            size={15}
+            color={active ? C.orange : C.dim}
+          />
+        ) : null}
+        <Text style={{ color: active ? C.orange : C.txt, fontWeight: '800', fontSize: 17 }}>
+          {value}
+        </Text>
+      </View>
+      <Text
+        style={{ color: active ? C.orange : C.dim, fontSize: 11, textAlign: 'center' }}
+        numberOfLines={1}
+      >
         {label}
       </Text>
-    </View>
+    </>
+  );
+  if (!onPress) return <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>{body}</View>;
+  return (
+    <TouchableOpacity
+      style={{ flex: 1, alignItems: 'center', gap: 2 }}
+      activeOpacity={0.7}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: !!active }}
+      accessibilityLabel={a11yLabel}
+    >
+      {body}
+    </TouchableOpacity>
   );
 }
 
@@ -44,6 +72,9 @@ export default function ProfileTop({
   reviewCount,
   completedJobs,
   likes,
+  likedByMe,
+  onToggleThumb,
+  onTimePercent,
   bgColor,
   photo,
   presence,
@@ -75,7 +106,13 @@ export default function ProfileTop({
           <View style={{ flexDirection: 'row' }}>
             <Stat value={`★ ${rating}`} label={`${tr('ustaDetail.ig.rating')} (${reviewCount})`} />
             <Stat value={completedJobs} label={tr('ustaDetail.ig.jobs')} />
-            <Stat value={likes} label={tr('ustaDetail.ig.likes')} />
+            <Stat
+              value={likes}
+              label={tr('ustaDetail.ig.likes')}
+              onPress={onToggleThumb}
+              active={likedByMe}
+              a11yLabel={tr('workerStats.like')}
+            />
           </View>
         </View>
       </View>
@@ -85,6 +122,14 @@ export default function ProfileTop({
           {isPro ? <Pill label="PRO" color={C.purple} /> : null}
           {isTop ? <Pill label="TOP" color={C.gold} /> : null}
           <PresenceBadge worker={presence} />
+          {onTimePercent != null ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="time-outline" size={13} color={C.dim} />
+              <Text style={{ color: C.dim, fontSize: 12 }}>
+                {tr('workerStats.onTime', { n: onTimePercent })}
+              </Text>
+            </View>
+          ) : null}
           {avgResponseMin != null ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Ionicons name="flash-outline" size={13} color={C.dim} />

@@ -23,8 +23,9 @@ export const FEATURES = {
   savedAddresses: true,
 };
 
-// Qo'llab-quvvatlash aloqa ma'lumotlari — saytdagi (dev.harna.uz/config.json) bilan bir xil.
-// Telegram/Instagram saytda hozircha bo'sh: bo'sh qiymat ilovada ham ko'rsatilmaydi.
+// Qo'llab-quvvatlash aloqa ma'lumotlari — FAQAT ZAXIRA: ilova avval saytning dev.harna.uz/config.json'ini
+// o'qiydi (`useSupportContact`), shu qiymatlar fayl yuklanmaguncha yoki unda yo'q bo'lsa ishlatiladi.
+// Bo'sh qiymat ilovada ko'rsatilmaydi.
 export const SUPPORT_CONTACT = {
   phone: '+998942599590',
   email: 'support@harna.uz',
@@ -70,7 +71,11 @@ export const ENDPOINTS = {
   VERIFY_EMAIL_REQUEST_OTP: `${API_BASE_URL}/api/v1/auth/verify-email/request-otp`,
   VERIFY_EMAIL_VERIFY_OTP: `${API_BASE_URL}/api/v1/auth/verify-email/verify-otp`,
   VERIFY_STATUS: `${API_BASE_URL}/api/v1/auth/verify/status`,
-  VERIFY_START: `${API_BASE_URL}/api/v1/auth/verify/start`,
+  VERIFY_MYID_START: `${API_BASE_URL}/api/v1/auth/verify/myid/start`,
+  VERIFY_MYID_COMPLETE: `${API_BASE_URL}/api/v1/auth/verify/myid/complete`,
+  VERIFY_MYID_ABANDON: `${API_BASE_URL}/api/v1/auth/verify/myid/abandon`,
+  TELEGRAM_LOGIN_CONFIG: `${API_BASE_URL}/api/v1/auth/telegram/config`,
+  TELEGRAM_LOGIN_VERIFY: `${API_BASE_URL}/api/v1/auth/telegram/verify`,
   TELEGRAM_LINK_STATUS: `${API_BASE_URL}/api/v1/auth/telegram/status`,
   TELEGRAM_LINK: `${API_BASE_URL}/api/v1/auth/telegram/link`,
   AUTH_CHANGE_PHONE_REQUEST_OTP: `${API_BASE_URL}/api/v1/auth/change-phone/request-otp`,
@@ -78,6 +83,7 @@ export const ENDPOINTS = {
   RESET_PASSWORD_REQUEST_OTP: `${API_BASE_URL}/api/v1/auth/reset-password/request-otp`,
   RESET_PASSWORD_VERIFY_OTP: `${API_BASE_URL}/api/v1/auth/reset-password/verify-otp`,
   CATEGORIES: `${API_BASE_URL}/api/v1/categories`,
+  CATEGORIES_SUGGEST: `${API_BASE_URL}/api/v1/categories/suggest`,
 
   GENDERS: `${API_BASE_URL}/api/v1/genders`,
   REGIONS: `${API_BASE_URL}/api/v1/regions`,
@@ -136,6 +142,8 @@ export const ENDPOINTS = {
   CUSTOMER_FAVORITES: (page = 1, size = 10) =>
     `${API_BASE_URL}/api/v1/customers/me/favorites?page=${page}&size=${size}`,
   CUSTOMER_FAVORITE: (workerId) => `${API_BASE_URL}/api/v1/customers/me/favorites/${workerId}`,
+  // Ustaning ochiq "yoqtirish"i (sevimlilardan boshqa): POST / DELETE → `{ likes_count, liked }`.
+  WORKER_LIKE: (workerId) => `${API_BASE_URL}/api/v1/workers/${workerId}/like`,
   CUSTOMER_AVATAR_UPLOAD_URL: `${API_BASE_URL}/api/v1/customers/me/avatar/upload-url`,
   CUSTOMER_AVATAR_CONFIRM: `${API_BASE_URL}/api/v1/customers/me/avatar/confirm`,
   CUSTOMER_AVATAR: `${API_BASE_URL}/api/v1/customers/me/avatar`,
@@ -147,6 +155,9 @@ export const ENDPOINTS = {
   ORDER_DETAIL: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}`,
   ORDER_AGAIN: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/again`,
   ORDER_PAYMENT: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/payment`,
+  // Tanlab olinadigan omonat: yangi buyurtma omonat talab qiladimi va uni to'lash.
+  ORDER_DEPOSIT_REQUIREMENT: `${API_BASE_URL}/api/v1/orders/deposit-requirement`,
+  ORDER_DEPOSIT_PAY: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/deposit/pay`,
   ORDER_CHAT: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/chat`,
   ORDER_CHAT_READ: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/chat/read`,
   ORDER_OFFER: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/offer`,
@@ -156,6 +167,7 @@ export const ENDPOINTS = {
   ORDER_PUBLISH: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/publish`,
   ORDER_CANCEL: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/cancel-by-customer`,
   ORDER_RECALL: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/recall`,
+  ORDER_LOCATION: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/location`,
   ORDER_REPOST: (orderId) => `${API_BASE_URL}/api/v1/orders/${orderId}/repost`,
   ORDER_REVIEW: (orderId) => `${API_BASE_URL}/api/v1/reviews/orders/${orderId}`,
   REVIEW_PHOTO_UPLOAD_URL: `${API_BASE_URL}/api/v1/reviews/photos/upload-url`,

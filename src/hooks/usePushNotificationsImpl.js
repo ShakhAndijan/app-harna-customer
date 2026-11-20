@@ -12,7 +12,7 @@ import { pushData, registerPush } from '../utils/push';
 // faqat token va bosilishni qayta ishlash.
 export default function usePushNotifications() {
   const { signedIn, locked } = useAuth();
-  const { language } = useLanguage();
+  const { language, t: tr } = useLanguage();
   const router = useRouter();
   const navState = useRootNavigationState();
   const queryClient = useQueryClient();
@@ -21,10 +21,10 @@ export default function usePushNotifications() {
   // Token: kirganda, til o'zgarganda (xabar matni shu tilda keladi) va FCM tokenni almashtirganda.
   useEffect(() => {
     if (!signedIn) return undefined;
-    registerPush({ locale: language, ask: true });
+    registerPush({ locale: language, ask: true, tr });
     const sub = Notifications.addPushTokenListener(() => registerPush({ locale: language }));
     return () => sub.remove();
-  }, [signedIn, language]);
+  }, [signedIn, language, tr]);
 
   // Ilova ochiq paytda xabar kelsa ro'yxat va qo'ng'iroqcha soni yangilanadi.
   useEffect(() => {

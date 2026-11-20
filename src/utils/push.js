@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { registerPushDevice, unregisterPushDevice } from '../api/push';
 import { devLog } from './log';
 import { PUSH_ENABLED } from '../constants/config';
+import { explainPermission } from './permissions';
 
 // Android 8+ da bildirishnoma kanalsiz chiqmaydi; kanal id si FCM `android.notification.channel_id`
 // bilan bir xil bo'lishi kerak (app.json dagi `defaultChannel` ham shu).
@@ -53,20 +54,49 @@ export async function getPushPermission() {
  * Ruxsat so'raydi. Android 13+ da so'rov oynasi kanal yaratilgach chiqadi, shuning uchun kanal avval.
  * Foydalanuvchi ikki marta rad etgan bo'lsa tizim oynani ko'rsatmaydi, shu sabab sozlamalar ochiladi.
  */
-export async function requestPushPermission() {
-  if (!PUSH_ENABLED) return false;
-  const Notifications = getNotifications();
-  await ensureChannel();
-  const current = await getPushPermission();
-  if (current.status === 'granted') return true;
-  if (current.status === 'denied' && !current.canAskAgain) {
-    Linking.openSettings().catch(() => {});
-    return false;
-  }
-  const res = await Notifications.requestPermissionsAsync({
-    ios: { allowAlert: true, allowBadge: true, allowSound: true },
-  });
-  return res.status === 'granted';
+// Tizim so'rovidan oldin ilova nima uchun kerakligini aytadi (`tr` berilsa). `postponed` — foydalanuvchi
+// "Keyinroq" dedi: tizim so'rovi chiqmadi. Bir vaqtda ikki so'rov bo'lsa ikkinchisi birinchisining javobini oladi.
+let asking = null;
+
+async function askPush(tr, again) {
+  if (!PUSH_ENABLED) return { granted: false, postponed: false };
+  if (asking) return asking;
+  asking = (async () => {
+    try {
+      const Notifications = getNotifications();
+      await ensureChannel();
+      const current = await getPushPermission();
+      if (current.status === 'granted') return { granted: true, postponed: false };
+      if (current.status === 'denied' && !current.canAskAgain) {
+        Linking.openSettings().catch(() => {});
+        return { granted: false, postponed: false };
+      }
+      if (
+        tr &&
+        !(await explainPermission(
+          tr,
+          'notifications',
+          tr('permissions.notificationsTitle'),
+          tr('permissions.notifications'),
+          again
+        ))
+      ) {
+        return { granted: false, postponed: true };
+      }
+      const res = await Notifications.requestPermissionsAsync({
+        ios: { allowAlert: true, allowBadge: true, allowSound: true },
+      });
+      return { granted: res.status === 'granted', postponed: false };
+    } finally {
+      asking = null;
+    }
+  })();
+  return asking;
+}
+
+/** Tugma bosilganda: sabab aytiladi, so'ng tizim so'raydi. `true` — ruxsat bor. */
+export async function requestPushPermission(tr) {
+  return (await askPush(tr, true)).granted;
 }
 
 // Huawei (Google xizmatlarisiz) telefonlar: FCM tokeni olinmasa HMS Push Kit tokeni ishlatiladi.
@@ -121,15 +151,17 @@ async function readRegistered() {
  * `ask` — ruxsat hali so'ralmagan bo'lsa, bir marta tizim oynasini ko'rsatadi.
  * Hech qachon xato tashlamaydi: push ishlamasa ham ilova ishlashda davom etadi.
  */
-export async function registerPush({ locale, ask = false }) {
+export async function registerPush({ locale, ask = false, tr }) {
   if (!PUSH_ENABLED) return false;
   try {
     const Notifications = getNotifications();
     await ensureChannel();
     let { status } = await getPushPermission();
     if (status !== 'granted' && ask && !(await AsyncStorage.getItem(PROMPTED_KEY))) {
-      await AsyncStorage.setItem(PROMPTED_KEY, '1');
-      if (await requestPushPermission()) status = 'granted';
+      const asked = await askPush(tr, false);
+      // "Keyinroq" bosilgan bo'lsa belgi qo'yilmaydi: keyingi ishga tushishda sabab yana aytiladi.
+      if (!asked.postponed) await AsyncStorage.setItem(PROMPTED_KEY, '1');
+      if (asked.granted) status = 'granted';
     }
     if (status !== 'granted') return false;
 

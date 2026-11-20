@@ -29,6 +29,10 @@ export const ORDER_SAFETY = {
       send: 'Yuborish',
       until: '{until} gacha murojaat qilishingiz mumkin',
       nudge: "Harna kafolati faqat ilova orqali to'liq to'langan ishlarga beriladi",
+      banner:
+        "Ilova orqali to'lasangiz — Harna kafolati: ish sifatsiz bo'lsa, tuzatiladi yoki {cap} so'mgacha qaytariladi",
+      bannerNoCap:
+        "Ilova orqali to'lasangiz — Harna kafolati: ish sifatsiz bo'lsa, tuzatib beriladi",
       answerLate: "Javob muddati o'tdi",
       fixedYes: 'Tuzatildi',
       fixedNo: 'Tuzatilmadi',
@@ -82,6 +86,10 @@ export const ORDER_SAFETY = {
       send: 'Отправить',
       until: 'Обратиться можно до {until}',
       nudge: 'Гарантия Harna действует только для работ, полностью оплаченных через приложение',
+      banner:
+        'Оплатите через приложение — Гарантия Harna: если работа выполнена некачественно, её исправят или вернут до {cap} сум',
+      bannerNoCap:
+        'Оплатите через приложение — Гарантия Harna: если работа выполнена некачественно, её исправят',
       answerLate: 'Срок ответа истёк',
       fixedYes: 'Исправлено',
       fixedNo: 'Не исправлено',
@@ -135,6 +143,10 @@ export const ORDER_SAFETY = {
       send: 'Send',
       until: 'You can file a claim until {until}',
       nudge: 'The Harna warranty only covers jobs fully paid through the app',
+      banner:
+        "Pay through the app — Harna guarantee: if the work is poor, it is fixed or up to {cap} so'm is refunded",
+      bannerNoCap:
+        'Pay through the app — Harna guarantee: if the work is poor, it is fixed for you',
       answerLate: 'The reply deadline has passed',
       fixedYes: 'Fixed',
       fixedNo: 'Not fixed',

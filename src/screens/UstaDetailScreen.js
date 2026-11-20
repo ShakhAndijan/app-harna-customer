@@ -48,6 +48,8 @@ function UstaDetailContent({
 
   const {
     detail,
+    thumb,
+    toggleThumb,
     loadingDetail,
     certificates,
     loadingCertificates,
@@ -144,7 +146,10 @@ function UstaDetailContent({
             rating={rating}
             reviewCount={detail?.reviewCount ?? 0}
             completedJobs={detail?.completedJobsCount ?? 0}
-            likes={detail?.likesCount ?? 0}
+            likes={thumb.count}
+            likedByMe={thumb.liked}
+            onToggleThumb={isLoggedIn ? toggleThumb : undefined}
+            onTimePercent={detail?.onTimePercent ?? null}
             bgColor={bgColor}
             photo={d.profile_photo}
             presence={livePresence ?? detail ?? profile.presence}

@@ -22,7 +22,8 @@ import AppLoader from '../components/AppLoader';
 import SectionError from './zakazchi-main/components/SectionError';
 import { useSendSupportChat, useSupportConversation } from '../queries/support';
 import { SUPPORT_MAX_LENGTH, SUPPORT_MIN_LENGTH } from '../api/support';
-import { SUPPORT_CONTACT } from '../constants/config';
+import { useSupportContact } from '../queries/siteConfig';
+import { telHref } from '../utils/siteLinks';
 import { messageTime, parseContact } from './support/utils';
 import { getErrorMessage } from '../utils/errors';
 
@@ -34,6 +35,7 @@ export default function SupportChatScreen({ onBack }) {
   const { t: tr } = useLanguage();
   const { user } = useUser();
   const scrollRef = useRef(null);
+  const companyPhone = useSupportContact().phone;
 
   const conversation = useSupportConversation();
   const send = useSendSupportChat();
@@ -110,16 +112,16 @@ export default function SupportChatScreen({ onBack }) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {!!SUPPORT_CONTACT.phone && (
+            {!!companyPhone && (
               <View style={[s.bubble, s.them, { backgroundColor: t.rowIconBg }]}>
                 <Text style={[s.text, { color: t.text }]}>{tr('supportChat.callUs')}</Text>
                 <TouchableOpacity
-                  onPress={() => Linking.openURL(`tel:${SUPPORT_CONTACT.phone}`)}
+                  onPress={() => Linking.openURL(telHref(companyPhone))}
                   style={s.phoneRow}
                 >
                   <MaterialCommunityIcons name="phone" size={15} color={t.orange} />
                   <Text style={[s.text, { color: t.orange, fontWeight: '800' }]}>
-                    {SUPPORT_CONTACT.phone}
+                    {companyPhone}
                   </Text>
                 </TouchableOpacity>
               </View>

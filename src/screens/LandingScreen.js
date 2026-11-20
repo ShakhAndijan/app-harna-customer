@@ -19,7 +19,7 @@ import PromoBanners from './zakazchi-main/components/PromoBanners';
 import useTabBarSpace from '../navigation/useTabBarSpace';
 
 // Kirmagan foydalanuvchi (mehmon) uchun bosh sahifa. Har bir bo'lim `landing/components/` da.
-export default function LandingScreen({ onLogin, onOrder, onSelectUsta }) {
+export default function LandingScreen({ onLogin, onOrder, onHelp, onSelectUsta }) {
   const bottomSpace = useTabBarSpace(110);
   const { t } = useLanguage();
 
@@ -54,7 +54,7 @@ export default function LandingScreen({ onLogin, onOrder, onSelectUsta }) {
           <SectionHead title={t('app.sectionHead.whyHarna')} />
           <Benefits />
 
-          <ClosingCta onPress={onLogin} onOrder={onOrder} />
+          <ClosingCta onPress={onLogin} onOrder={onOrder} onHelp={onHelp} />
         </ScrollView>
       </SafeAreaView>
     </DarkScope>

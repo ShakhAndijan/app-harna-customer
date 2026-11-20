@@ -23,7 +23,13 @@ import ExtraWorkCard from './orders/components/ExtraWorkCard';
 import ExtrasList from './orders/components/ExtrasList';
 import OrderHistory, { historyRows } from './orders/components/OrderHistory';
 import ArrivalCard from './orders/components/ArrivalCard';
+import UrgentTag from '../components/UrgentTag';
+import ListingTag from '../components/ListingTag';
+import { orderExtraRows } from './orders/extraFields';
+import OrderPinCard from './orders/components/OrderPinCard';
+import WorkPhotosGallery, { PhotoStrip } from './orders/components/WorkPhotosGallery';
 import OffersSection from './requests/components/OffersSection';
+import DepositNotice from './deposit/DepositNotice';
 import MatchComplaintNotice from './requests/components/MatchComplaintNotice';
 import useLiveOrder from './requests/hooks/useLiveOrder';
 import { useOrderTiming } from '../queries/orderTiming';
@@ -39,9 +45,15 @@ import {
 } from './requests/utils';
 import useBottomInset from '../hooks/useBottomInset';
 
+const EXTRA_ICONS = {
+  preferred: 'weather-sunset-up',
+  tools: 'toolbox-outline',
+  age: 'account-clock-outline',
+};
+
 // Buyurtma kuzatuv ekrani (backenddan jonli): holat banneri, xulosa, usta va narx kelishuvi.
 // Usta buyurtmani qabul qilgach (ACCEPTED) chat ochiladi, narx taklif/qabul qilinadi (ACTIVE).
-export default function RequestScreen({ orderId, onBack }) {
+export default function RequestScreen({ orderId, onBack, askedPin = false }) {
   const bottomInset = useBottomInset();
   const router = useRouter();
   const { theme: t } = useTheme();
@@ -123,7 +135,9 @@ export default function RequestScreen({ orderId, onBack }) {
 
   const info = describeOrder(order, tr);
   const note = deadlineNote(order, tr);
-  const hasWorker = !!order.master && order.rawStatus !== 'pending';
+  // Omonat kutayotgan buyurtma hali ustaga yuborilmagan: usta bo'limi ko'rsatilmaydi.
+  const hasWorker =
+    !!order.master && order.rawStatus !== 'pending' && order.rawStatus !== 'awaiting_deposit';
   const canChat = order.rawStatus === 'accepted' || order.rawStatus === 'active';
   const isActive = order.rawStatus === 'active';
   // Ustaga yuborilgan, hali javob bermagan buyurtmani qaytarib olish mumkin.
@@ -174,6 +188,10 @@ export default function RequestScreen({ orderId, onBack }) {
         }}
       >
         <StatusBanner info={info} pulsing={info.state === 'pending' || negotiating} />
+        <UrgentTag order={order} />
+        <ListingTag order={order} />
+
+        <DepositNotice order={order} onChanged={refresh} />
 
         {!!note && (
           <View style={[s.note, { backgroundColor: t.gold + '1f', borderColor: t.gold + '55' }]}>
@@ -188,7 +206,10 @@ export default function RequestScreen({ orderId, onBack }) {
           onAnswer={actions.confirmComplaintAnswer}
         />
 
+        <OrderPinCard order={order} asked={askedPin} onChanged={refresh} />
         <ArrivalCard order={order} busy={actions.busy} onAnswer={actions.answerArrival} />
+        {/* Ish suratlari (13.11): ustaning «oldin» va «keyin» suratlari. */}
+        <WorkPhotosGallery photos={order.workPhotos} />
 
         {isActive && !!order.pendingExtra && (
           <ExtraWorkCard
@@ -221,6 +242,15 @@ export default function RequestScreen({ orderId, onBack }) {
               t={t}
             />
           )}
+          {orderExtraRows(order, tr).map((row) => (
+            <SummaryRow
+              key={row.key}
+              icon={EXTRA_ICONS[row.key]}
+              label={row.label}
+              value={row.value}
+              t={t}
+            />
+          ))}
           <SummaryRow
             icon="clock-outline"
             label={tr('requests.summaryCreated')}
@@ -339,7 +369,12 @@ export default function RequestScreen({ orderId, onBack }) {
         )}
 
         {showOffers && (
-          <OffersSection orderId={orderId} chooseUntil={order.chooseUntil} onChanged={refresh} />
+          <OffersSection
+            orderId={orderId}
+            chooseUntil={order.chooseUntil}
+            onChanged={refresh}
+            priced={order.platformPrice != null}
+          />
         )}
 
         {canRecall && (
@@ -364,6 +399,11 @@ export default function RequestScreen({ orderId, onBack }) {
             <MaterialCommunityIcons name="bullhorn-outline" size={19} color="#fff" />
             <Text style={[s.btnText, { color: '#fff' }]}>{tr('orderFlow.stage.repost')}</Text>
           </TouchableOpacity>
+        )}
+
+        {/* Ish shu suratlarga qarab tasdiqlanadi: usta «Ish bajarildi» degach joriy urinishning «keyin» suratlari. */}
+        {isActive && info.state === 'workDone' && (
+          <PhotoStrip label={tr('workPhotos.afterTitle')} photos={order.workPhotos?.after ?? []} />
         )}
 
         {isActive && (
@@ -432,7 +472,11 @@ export default function RequestScreen({ orderId, onBack }) {
           >
             <MaterialCommunityIcons name="cash-edit" size={19} color={canAgree ? t.text : '#fff'} />
             <Text style={[s.dealBtnTxt, { color: canAgree ? t.text : '#fff' }]} numberOfLines={1}>
-              {hasOffer ? tr('requests.counterShort') : tr('orderFlow.stage.offer')}
+              {order.platformPrice != null
+                ? tr('platformPrice.changeDay')
+                : hasOffer
+                  ? tr('requests.counterShort')
+                  : tr('orderFlow.stage.offer')}
             </Text>
           </TouchableOpacity>
           {canAgree && (

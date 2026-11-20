@@ -17,12 +17,20 @@ const mapMessage = (m) => ({
 /**
  * Murojaat yoki taklif yuboradi. Tizimga kirgan mijozda aloqa ma'lumoti shart emas
  * (javob xabarnomalarda ko'rinadi).
- * @param {{ kind: 'question'|'suggestion', body: string, name?: string }} data
+ * Mehmon (kirmagan) ham yubora oladi: ism va aloqa vositasi shart, CAPTCHA yoqilgan bo'lsa `captcha`
+ * (Cloudflare Turnstile tokeni; bitta xabar uchun).
+ * @param {{ kind: 'question'|'suggestion', body: string, name?: string, contact?: string, captcha?: string }} data
  */
-export const sendSupportItem = ({ kind, body, name }) =>
+export const sendSupportItem = ({ kind, body, name, contact, captcha }) =>
   request(ENDPOINTS.SUPPORT_MESSAGES, {
     method: 'POST',
-    body: { kind, body, ...(name ? { name } : {}) },
+    body: {
+      kind,
+      body,
+      ...(name ? { name } : {}),
+      ...(contact ? { contact } : {}),
+      ...(captcha ? { captcha_token: captcha } : {}),
+    },
     fallbackMessage: 'Murojaat yuborilmadi',
   });
 

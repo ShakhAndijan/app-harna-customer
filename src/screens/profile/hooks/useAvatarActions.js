@@ -6,14 +6,17 @@ import { useUser } from '../../../context/UserContext';
 import { getAvatarUploadUrl, confirmAvatar, deleteAvatar } from '../../../api/user';
 import { uploadImageToPresignedUrl } from '../../../api/auth';
 import { getErrorMessage } from '../../../utils/errors';
+import { askCamera } from '../../../utils/permissions';
 
 // Galereya yoki kameradan kvadrat rasm tanlaydi; tanlansa onPicked(uri, mimeType) chaqiriladi.
 async function pickImage(source, onPicked, tr) {
   const fromCamera = source === 'camera';
-  const perm = fromCamera
-    ? await ImagePicker.requestCameraPermissionsAsync()
-    : await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!perm.granted) {
+  // Kamerada tizim so'rovidan oldin sabab aytiladi; "Keyinroq" (null) — jim qaytamiz.
+  const granted = fromCamera
+    ? await askCamera(tr, 'avatar', { again: true })
+    : (await ImagePicker.requestMediaLibraryPermissionsAsync()).granted;
+  if (granted === null) return;
+  if (!granted) {
     appAlert(
       tr('profile.errors.permissionTitle'),
       tr(fromCamera ? 'profile.errors.cameraPermission' : 'profile.errors.galleryPermission')

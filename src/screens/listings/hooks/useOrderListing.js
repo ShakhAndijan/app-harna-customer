@@ -26,6 +26,7 @@ export default function useOrderListing() {
           trade: listing.title,
           categoryId: listing.categoryId,
           listingId: listing.id,
+          listingCode: listing.code ?? null,
         })
       );
     },

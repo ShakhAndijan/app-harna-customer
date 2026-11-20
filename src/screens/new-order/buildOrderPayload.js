@@ -19,6 +19,7 @@ export default function buildOrderPayload({
   floor,
   when,
   whenDate,
+  whenWindow,
   workerCount,
   backupPhone,
   requirePhoto,
@@ -34,7 +35,12 @@ export default function buildOrderPayload({
   orgSiteId,
   againFrom,
   keptPhotos,
+  quote,
 }) {
+  // Narxni platforma belgilagan buyurtma butun ish uchun shu summada ketadi: `budget` — mijoz ko'rgan summaga
+  // rozilik belgisi (server o'zinikiga tenglaydi, farq qilsa 409 `platform_price_changed`). Viloyat noma'lum
+  // bo'lsa summa yuborilmaydi, server o'zi to'ldiradi. Yozilgan narx va soatbay bunga yetib bormaydi.
+  const priced = quote?.kind === 'priced';
   // Aniq ustaga buyurtma berilganda ishchiga talablar yuborilmaydi (faqat "boshqa talablar" matni).
   const targeted = orderWorker?.id != null;
   return {
@@ -62,17 +68,24 @@ export default function buildOrderPayload({
         : when === 'today'
           ? toISODate(new Date())
           : null,
+    // «Qaysi vaqtda kelsin?»: faqat "Bugun" yoki tanlangan sana bilan ("10:00"); boshqasida server 422 qaytaradi.
+    ...(whenWindow && (when === 'today' || when === 'date') ? { window_start: whenWindow } : {}),
     workers_needed: workerCount,
     require_photo: targeted ? null : requirePhoto,
     require_verified: targeted ? null : requireVerified || null,
     min_rating: targeted ? null : minRating || null,
     min_experience_years: targeted ? null : minExperience || null,
     extra_requirements: extraRequirements?.trim() || null,
-    price_mode: pricingType,
-    hourly_rate: pricingType === 'hourly' && hourlyRate.trim() ? Number(hourlyRate) : null,
+    price_mode: priced ? 'fixed' : pricingType,
+    hourly_rate:
+      !priced && pricingType === 'hourly' && hourlyRate.trim() ? Number(hourlyRate) : null,
     estimated_hours:
-      pricingType === 'hourly' && estimatedHours.trim() ? Number(estimatedHours) : null,
-    budget: pricingType === 'fixed' && fixedPrice.trim() ? Number(fixedPrice) : null,
+      !priced && pricingType === 'hourly' && estimatedHours.trim() ? Number(estimatedHours) : null,
+    ...(priced
+      ? quote.exact != null
+        ? { budget: quote.exact }
+        : {}
+      : { budget: pricingType === 'fixed' && fixedPrice.trim() ? Number(fixedPrice) : null }),
     payment_method: paymentMethod,
     org_site_id: orgSiteId ?? null,
     // "Yana chaqirish": eski buyurtma rasmlari qayta yuklanmaydi; rasm qolmagan bo'lsa ikkalasi ham yuborilmaydi.

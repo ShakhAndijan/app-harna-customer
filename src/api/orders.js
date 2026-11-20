@@ -56,6 +56,7 @@ const MAX_PAGES = 5;
 
 // Backend holati → UI guruhi: kutilayotgan/qabul qilingan/jarayondagi buyurtmalar "active".
 const STATUS_GROUP = {
+  awaiting_deposit: 'active',
   pending: 'active',
   accepted: 'active',
   active: 'active',
@@ -116,11 +117,43 @@ function mapExtra(x) {
   };
 }
 
+// Omonat: `{ amount, status, due_at, reason, provider, paid_at, resolution, refunded_at }` yoki null.
+function mapDeposit(d) {
+  if (!d || typeof d !== 'object') return null;
+  return {
+    amount: d.amount ?? null,
+    status: d.status ?? null,
+    dueAt: d.due_at ?? null,
+    reason: d.reason ?? null,
+    provider: d.provider ?? null,
+    paidAt: d.paid_at ?? null,
+    resolution: d.resolution ?? null,
+    refundedAt: d.refunded_at ?? null,
+  };
+}
+
 /**
  * Backenddagi OrderOut / OrderDetailOut obyektini UI formatiga o'giradi.
  * Ikkala shakl ham qo'llab-quvvatlanadi (ro'yxat: worker_name/task_names,
  * tafsilot: worker{}/tasks[]/category{}).
  */
+// Ustaning ish suratlari (13.11): `before` — oxirgi urinishning «oldin» to'plami, `after` — joriy urinishning
+// «keyin» to'plami (mijoz shu bilan tasdiqlaydi), `rounds` — hammasi, eskisidan boshlab.
+const urls = (v) => (Array.isArray(v) ? v.filter((u) => typeof u === 'string') : []);
+export function mapWorkPhotos(w) {
+  if (!w || typeof w !== 'object') return null;
+  return {
+    round: Number(w.round) || 1,
+    before: urls(w.before),
+    after: urls(w.after),
+    rounds: (Array.isArray(w.rounds) ? w.rounds : []).map((r) => ({
+      round: Number(r.round) || 1,
+      before: urls(r.before),
+      after: urls(r.after),
+    })),
+  };
+}
+
 export function mapOrder(o) {
   // Familiyasiz usta uchun server "Aziz " (oxirida bo'shliq) qaytarishi mumkin.
   const workerName = (o.worker_name ?? o.worker?.full_name)?.trim() || null;
@@ -171,6 +204,13 @@ export function mapOrder(o) {
     estimatedHours: hours,
     hourlyRate,
     priceMode: o.price_mode ?? null,
+    // Qo'shimcha maydonlar: uskunalar kimniki ('customer' | 'worker'), ustaning yoshi oralig'i, qulay vaqt.
+    toolsProvidedBy: o.tools_provided_by ?? null,
+    workerAgeMin: toNumber(o.worker_age_min),
+    workerAgeMax: toNumber(o.worker_age_max),
+    preferredTime: o.preferred_time ?? null,
+    // «O'zgarmas narx»: buyurtma berilganda qotirilgan, platforma belgilagan summa (null — kelishiladigan buyurtma).
+    platformPrice: toNumber(o.platform_price),
     // Kelishuv bosqichi (ACCEPTED): kim qanday narx taklif qilgan va kelishilgan narx.
     offerPrice: toNumber(o.offer_price),
     offerBy: o.offer_by ?? null,
@@ -181,7 +221,11 @@ export function mapOrder(o) {
     paymentStatus: 'not_charged',
     beforePhotos: o.before_photos || [],
     afterPhotos: o.after_photos || [],
+    workPhotos: mapWorkPhotos(o.work_photos),
     cancelReason: o.cancel_reason ?? null,
+    // Omonat (14.11): mijozning o'z omonati (faqat o'z buyurtmalarida) va ustaga ko'rinadigan belgi.
+    deposit: mapDeposit(o.deposit),
+    depositHeld: !!o.deposit_held,
     // Kelishuv to'xtatilgach buyurtma mijozga qaytadi (PENDING + returned_at): boshqa ustaga yuborish yoki ommaga chiqarish mumkin.
     returnedAt: o.returned_at ?? null,
     returnedBy: o.returned_by ?? null,
@@ -198,8 +242,9 @@ export function mapOrder(o) {
     // "Tarix" (vaqt chizig'i) uchun: usta qabul qilgan va buyurtma bekor qilingan vaqtlar, e'lon.
     acceptedAt: o.accepted_at ?? null,
     cancelledAt: o.cancelled_at ?? null,
-    listingTitle: o.listing?.title?.trim() || null,
-    listingCode: o.listing?.code ?? null,
+    // E'lon nomi va kodi: ro'yxatda tekis (`listing_title`, `listing_code`), tafsilotda `listing` ichida.
+    listingTitle: (o.listing_title ?? o.listing?.title)?.trim() || null,
+    listingCode: o.listing_code ?? o.listing?.code ?? null,
     // Smeta: ustaning ish/material qatorlari.
     estimate: (o.estimate ?? []).map((row) => ({
       name: row.name ?? '',
@@ -224,6 +269,9 @@ export function mapOrder(o) {
     offerWindowStart: o.offer_window_start ?? null,
     offerWindowEnd: o.offer_window_end ?? null,
     timingKind: o.timing_kind ?? null,
+    // «Shoshilinch» (13.11): mijoz tanlagan yoki so'ralgan vaqt yaqin bo'lgani uchun server o'zi qo'ygan belgi.
+    // Eski serverda faqat mijozning tanlovi (`timing_kind`) bor.
+    isUrgent: o.is_urgent != null ? !!o.is_urgent : o.timing_kind === 'urgent',
     budget,
     reposted: !!o.reposted,
     // "Usta bog'lana olmadi" da'vosi (status: awaiting_customer | disputed | ...) va javob muddati.
@@ -240,6 +288,9 @@ export function mapOrder(o) {
       : null,
     // Usta yetib kelgan vaqt va "Usta keldimi?" tekshiruvi (javob berish mumkinmi, muddat, holat).
     workerArrivedAt: o.worker_arrived_at ?? null,
+    // Buyurtma pini (xaritadagi nuqta): usta yetib kelganda shu nuqta bilan solishtiriladi.
+    gpsLat: o.gps_lat ?? null,
+    gpsLng: o.gps_lng ?? null,
     arrivalCheck: o.arrival_check
       ? {
           canAnswer: !!o.arrival_check.can_answer,
@@ -397,6 +448,8 @@ export function mapChat(data) {
       workerName: t.worker_name?.trim() || null,
       workerPhoto: t.worker_photo ?? null,
       isActive: !!t.is_active,
+      // Boshqa tomon o'qigan oxirgi xabar id'si: shundan kichik/teng o'z xabarlarim "o'qildi" (✓✓).
+      peerReadId: Number(t.peer_read_id) || 0,
       messages: (t.messages ?? []).map(mapChatMessage),
     })),
     unread: data?.unread ?? 0,
@@ -428,7 +481,8 @@ export const offerOrderPrice = (orderId, price, scheduledDate, windowStart) =>
   postJson(
     ENDPOINTS.ORDER_OFFER(orderId),
     {
-      price,
+      // Narxi platforma belgilagan buyurtmada narx yuborilmaydi: taklif faqat kun.
+      ...(price != null ? { price } : {}),
       ...(scheduledDate ? { scheduled_date: scheduledDate } : {}),
       ...(windowStart ? { window_start: windowStart } : {}),
     },
@@ -447,6 +501,16 @@ export const agreeOrder = (orderId, scheduledDate) =>
   );
 
 /** Javob bermagan ustaga yuborilgan buyurtmani qaytarib oladi (PENDING). */
+/**
+ * Mijoz buyurtma pinini qo'yadi yoki to'g'rilaydi (usta yetib kelgani yozilguncha; undan keyin 409 `location_locked`).
+ */
+export const setOrderLocation = (orderId, lat, lng) =>
+  postJson(
+    ENDPOINTS.ORDER_LOCATION(orderId),
+    { gps_lat: lat, gps_lng: lng },
+    'Manzil nuqtasi yuborilmadi'
+  );
+
 export const recallOrder = (orderId) =>
   postJson(ENDPOINTS.ORDER_RECALL(orderId), undefined, 'Buyurtma qaytarib olinmadi');
 
@@ -631,10 +695,19 @@ export async function getPaymentProviders() {
     : Array.isArray(data?.order_providers)
       ? data.order_providers
       : (data?.providers ?? []);
+  const depositRaw = Array.isArray(data?.deposit_providers) ? data.deposit_providers : [];
   return {
     providers: sortProviders(raw.map(providerId).filter(Boolean)),
     minAmount: limit(data?.min_amount, DEFAULT_PAY_MIN),
     maxAmount: limit(data?.max_amount, DEFAULT_PAY_MAX),
+    // Omonat uchun to'lov tizimlari (eski serverda yo'q: omonat taklif qilinmaydi) va uning yoqilgani.
+    depositProviders: sortProviders(depositRaw.map(providerId).filter(Boolean)),
+    depositEnabled: data?.deposit_enabled !== false,
+    // Serverning tizim nomlari: `{ payme: 'Payme', ... }`.
+    labels: data?.labels && typeof data.labels === 'object' ? data.labels : {},
+    // Harna kafolati: server yoqqan bo'lsa to'lov kartasida eslatma; `cap` — eng ko'p qaytariladigan summa.
+    guaranteeEnabled: data?.guarantee_enabled === true,
+    guaranteeCap: Math.floor(Number(data?.guarantee_cap ?? 0)) || 0,
   };
 }
 
@@ -654,3 +727,27 @@ export async function createOrderPayment(orderId, { amountUzs, provider, locale 
     state: data?.state ?? null,
   };
 }
+
+// ─── Omonat (tanlab olinadigan) ──────────────────────────────────────
+
+/**
+ * `GET /orders/deposit-requirement`: hozir berilgan buyurtma omonat kutadimi. `required` omonat
+ * o'chiq yoki hech bir to'lov tizimi qabul qilmasa false. Maydonlar: `amount` (so'm, satr), `reason`
+ * (`marks` | `admin`), `marks`, `window_days`, `threshold`, `payment_minutes`, `providers`.
+ */
+export const getDepositRequirement = () =>
+  request(ENDPOINTS.ORDER_DEPOSIT_REQUIREMENT, {
+    fallbackMessage: 'Omonat holati yuklanmadi',
+  });
+
+/**
+ * `awaiting_deposit` buyurtma uchun omonat to'lov sahifasi (`return_to: 'app'`). Javob:
+ * `{ checkout_url, deposit }`. Xatolar: 400 `deposit_provider_unsupported`; 409 `deposit_not_required`,
+ * `deposit_already_paid`, `deposit_off`, `deposit_expired`; 404 `order_not_found`.
+ */
+export const payOrderDeposit = (orderId, provider, locale) =>
+  request(ENDPOINTS.ORDER_DEPOSIT_PAY(orderId), {
+    method: 'POST',
+    body: { provider, locale, return_to: 'app' },
+    fallbackMessage: "To'lov boshlanmadi",
+  });

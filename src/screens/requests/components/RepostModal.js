@@ -3,8 +3,12 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import MoneyInput from '../../new-order/components/MoneyInput';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import FlowModal from './FlowModal';
 import DayField from './DayField';
+import WindowField from './WindowField';
+import { useOrderTiming } from '../../../queries/orderTiming';
+import { keptWindow, normalizeTime, tashkentToday, urgentSoon, openSlots } from '../arrival';
 import { formatDay, formatPrice, isDayValid } from '../utils';
 import { parsePrice } from '../hooks/useOrderActions';
 
@@ -29,16 +33,28 @@ function RepostForm({ order, busy, onClose, onSubmit }) {
     !dayGone && order.scheduledDate ? order.scheduledDate.slice(0, 10) : null
   );
   const [budget, setBudget] = useState('');
+  const priced = order?.platformPrice != null;
+  // Kelish oralig'i: buyurtmadagi oldingisi kun o'zgarmasa saqlanadi; kun yoki turi o'zgarsa yaroqsiz bo'lishi mumkin.
+  const [windowPick, setWindowPick] = useState(() =>
+    dayGone ? null : normalizeTime(order?.windowStart)
+  );
+  const orderTiming = useOrderTiming();
 
   const needsDay = timing === 'on_date' && !day;
+  // Oyna faqat aniq kun bilan: "Bugun" yoki tanlangan sana.
+  const windowDay = timing === 'today' ? tashkentToday() : timing === 'on_date' ? day : null;
+  const windowValue = keptWindow(orderTiming, windowDay, windowPick, { notBegun: true });
 
   const submit = () => {
     const payload = {};
     if (timing) {
       payload.timing_kind = timing;
       payload.scheduled_date = timing === 'on_date' ? day : null;
+      if (windowDay) payload.window_start = windowValue;
     }
-    const amount = parsePrice(budget);
+    // Narxi platforma belgilagan buyurtmani server xizmatning hozirgi narxida qayta baholaydi: boshqa summa
+    // yuborilsa 409 `platform_price_changed`, shuning uchun summa maydoni yo'q va yuborilmaydi.
+    const amount = priced ? null : parsePrice(budget);
     if (amount) payload.budget = amount;
     onSubmit(payload);
   };
@@ -93,19 +109,46 @@ function RepostForm({ order, busy, onClose, onSubmit }) {
         </>
       )}
 
-      <Text style={[s.label, { color: t.text }]}>{tr('orderFlow.stage.repostBudget')}</Text>
-      <MoneyInput
-        value={budget}
-        onChangeText={setBudget}
-        placeholder={tr('requests.pricePlaceholder', { currency: tr('common.currencySom') })}
-        suffix={tr('common.currencySom')}
-        t={t}
-      />
-      <Text style={[s.note, { color: t.muted }]}>
-        {order?.budget
-          ? tr('orderFlow.stage.repostBudgetKeep', { price: formatPrice(tr, order.budget) })
-          : tr('orderFlow.stage.repostBudgetNone')}
-      </Text>
+      {!!windowDay && (
+        <>
+          <Text style={[s.label, { color: t.text }]}>{tr('arrivalWindow.askLabel')}</Text>
+          <WindowField
+            slots={openSlots(orderTiming, windowDay, { notBegun: true })}
+            value={windowValue}
+            minutes={orderTiming.minutes}
+            onChange={setWindowPick}
+          />
+          {urgentSoon(orderTiming, windowDay, windowValue) && (
+            <View
+              style={[s.soon, { backgroundColor: t.red + '1a', borderColor: t.red + '55' }]}
+              accessibilityRole="text"
+            >
+              <MaterialCommunityIcons name="lightning-bolt" size={17} color={t.red} />
+              <Text style={[s.soonTxt, { color: t.red }]}>{tr('arrivalWindow.urgentSoon')}</Text>
+            </View>
+          )}
+        </>
+      )}
+
+      {priced ? (
+        <Text style={[s.note, { color: t.muted }]}>{tr('platformPrice.repostHint')}</Text>
+      ) : (
+        <>
+          <Text style={[s.label, { color: t.text }]}>{tr('orderFlow.stage.repostBudget')}</Text>
+          <MoneyInput
+            value={budget}
+            onChangeText={setBudget}
+            placeholder={tr('requests.pricePlaceholder', { currency: tr('common.currencySom') })}
+            suffix={tr('common.currencySom')}
+            t={t}
+          />
+          <Text style={[s.note, { color: t.muted }]}>
+            {order?.budget
+              ? tr('orderFlow.stage.repostBudgetKeep', { price: formatPrice(tr, order.budget) })
+              : tr('orderFlow.stage.repostBudgetNone')}
+          </Text>
+        </>
+      )}
     </FlowModal>
   );
 }
@@ -113,6 +156,16 @@ function RepostForm({ order, busy, onClose, onSubmit }) {
 const s = StyleSheet.create({
   label: { fontSize: 13, fontWeight: '700' },
   note: { fontSize: 12, lineHeight: 17 },
+  soon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  soonTxt: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '700' },
   warn: { borderRadius: 12, borderWidth: 1, padding: 10 },
   warnTxt: { fontSize: 12.5, lineHeight: 18 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

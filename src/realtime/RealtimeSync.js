@@ -8,9 +8,16 @@ import { emitRealtime, setRealtimeConnected } from '../utils/realtime';
 
 // Hodisa nomi → yangilanadigan so'rovlar. Hodisa tarkibiga tayanilmaydi: tegishli ro'yxat/tafsilot
 // shunchaki qayta yuklanadi (ma'lumot har doim serverdan).
-function keysFor(event) {
+function keysFor(event, payload) {
   if (event.startsWith('order.') || event.startsWith('offer.')) {
     return [['orders'], ['notifications']];
+  }
+  // Hisob o'zgardi (telefon tasdiqlandi, blok qo'yildi/olindi, MyID): profil qayta o'qiladi.
+  // `what: 'support'` — jamoa murojaat/taklif yoki chatga javob berdi: ro'yxatlar va yozishma yangilanadi.
+  if (event === 'account.changed') {
+    const keys = [['customer', 'me'], ['me'], ['identity', 'status']];
+    if (payload?.what === 'support') keys.push(['support'], ['notifications']);
+    return keys;
   }
   if (event === 'complaint.changed') return [['complaints'], ['notifications']];
   if (event === 'review.received') {
@@ -50,7 +57,7 @@ export default function RealtimeSync({ enabled }) {
     });
 
     socket.onAny((event, payload) => {
-      const keys = keysFor(event);
+      const keys = keysFor(event, payload);
       if (!keys) return;
       devLog('[realtime] hodisa', event);
       keys.forEach((queryKey) => queryClient.invalidateQueries({ queryKey }));

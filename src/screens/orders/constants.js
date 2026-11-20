@@ -7,6 +7,7 @@ export const STATUS_META = {
 
 // Backend holati (pending/accepted/active/completed/cancelled) bo'yicha matn kalitlari.
 const STATUS_LABEL_KEY = {
+  awaiting_deposit: 'deposit.statusLabel',
   pending: 'orders.statusPending',
   accepted: 'orders.statusAccepted',
   active: 'orders.statusActive',
@@ -15,6 +16,7 @@ const STATUS_LABEL_KEY = {
 };
 
 const STATUS_SUBTEXT_KEY = {
+  awaiting_deposit: 'deposit.statusSubtext',
   pending: 'orderDetail.statusSubtext.pending',
   accepted: 'orderDetail.statusSubtext.accepted',
   active: 'orderDetail.statusSubtext.active',

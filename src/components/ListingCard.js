@@ -26,7 +26,12 @@ export default function ListingCard({ listing, accent, onPress, onContact, color
   const [photoFailed, setPhotoFailed] = useState(false);
   const { src: photoSrc, onError: thumbError } = useThumb(listing.profile_photo);
   const showPhoto = listing.profile_photo && !photoFailed;
-  const meta = [listing.location, listing.postedAgo].filter(Boolean).join(' · ');
+  // "Chilonzor, Toshkent · 14 ta ish": bajarilgan ishlar soni (nol bo'lsa ko'rsatilmaydi).
+  const jobs =
+    listing.completedJobCount > 0
+      ? t('workerStats.cardJobs', { n: listing.completedJobCount })
+      : '';
+  const meta = [listing.location, listing.postedAgo, jobs].filter(Boolean).join(' · ');
 
   return (
     <TouchableOpacity

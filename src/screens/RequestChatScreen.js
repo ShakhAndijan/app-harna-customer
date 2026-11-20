@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { appAlert } from '../components/AppAlert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAvoidingView, useKeyboardState } from 'react-native-keyboard-controller';
 import useBottomInset from '../hooks/useBottomInset';
@@ -8,10 +7,11 @@ import { StatusBar } from 'expo-status-bar';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import { getOrderChat, sendOrderChat, markOrderChatRead } from '../api/orders';
+import { getOrderChat, markOrderChatRead } from '../api/orders';
 import Avatar from '../components/Avatar';
 import OfferModal from './requests/components/OfferModal';
 import usePolling from './requests/hooks/usePolling';
+import useChatOutbox from './requests/hooks/useChatOutbox';
 import { pollEvery } from '../utils/realtime';
 import useLiveOrder from './requests/hooks/useLiveOrder';
 import useOrderActions from './requests/hooks/useOrderActions';
@@ -20,7 +20,6 @@ import { dayWithWindow, offerWindowLabel, windowLabel } from './requests/arrival
 import { useOrderTiming } from '../queries/orderTiming';
 import { chatSystemText } from '../i18n/chatSystemTexts';
 import { extraStatusText, extraTone } from './orders/components/ExtrasList';
-import { getErrorMessage } from '../utils/errors';
 
 // Real vaqt ulangan bo'lsa chat zaxira sifatida siyrak so'raladi.
 const CHAT_POLL_MS = pollEvery(5000, 30000);
@@ -46,7 +45,6 @@ export default function RequestChatScreen({
   useOrderTiming();
   const [chat, setChat] = useState(null);
   const [text, setText] = useState('');
-  const [sending, setSending] = useState(false);
   const [priceOpen, setPriceOpen] = useState(false);
   const scrollRef = useRef(null);
 
@@ -60,12 +58,23 @@ export default function RequestChatScreen({
 
   usePolling(loadChat, CHAT_POLL_MS);
 
+  // Yuborish navbati: xabar darhol ko'rinadi, birma-bir ketadi; o'tmaganini qayta yuborish/tahrirlash mumkin.
+  const outbox = useChatOutbox({
+    orderId,
+    workerId,
+    onSent: setChat,
+    onClosed: loadChat,
+  });
+
   // Hozirgi usta bilan suhbat (bo'lmasa — eng oxirgisi).
   const thread =
     workerId != null
       ? chat?.threads.find((th) => th.workerId === workerId)
       : (chat?.threads.find((th) => th.isActive) ?? chat?.threads[chat.threads.length - 1]);
   const messages = thread?.messages ?? [];
+  // Usta tanlanmagan buyurtmada mijoz barcha suhbatlarni ko'radi: avvalgilari "Arxiv" bo'lib yig'iladi.
+  const shownThreads = workerId != null ? (thread ? [thread] : []) : (chat?.threads ?? []);
+  const single = shownThreads.length <= 1;
 
   useEffect(() => {
     if (chat?.unread) markOrderChatRead(orderId).catch(() => {});
@@ -73,31 +82,34 @@ export default function RequestChatScreen({
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
-  }, [messages.length]);
+  }, [messages.length, outbox.outbox.length]);
 
-  const send = async () => {
+  const send = () => {
     const body = text.trim();
-    if (!body || sending) return;
-    setSending(true);
-    try {
-      setChat(await sendOrderChat(orderId, body, workerId));
-      setText('');
-    } catch (e) {
-      appAlert(tr('common.errorTitle'), getErrorMessage(e, tr, 'requests.actionFailed'));
-    } finally {
-      setSending(false);
-    }
+    if (!body) return;
+    outbox.send(body);
+    setText('');
+  };
+  // Rad etilgan qatorni yozish maydoniga qaytaradi (yozilayotgan matn oldida qoladi).
+  const editLine = (key) => {
+    const body = outbox.edit(key);
+    if (body != null) setText((cur) => (cur.trim() ? `${body}\n${cur}` : body));
   };
 
   const negotiating = order?.rawStatus === 'accepted';
   // Tizim xabarlari matni uchun kontekst (kelishuv davom etyaptimi, shikoyat turi) va qo'shimcha ishlar.
-  const threadLive = !!thread?.isActive || workerId == null;
-  const bubbleCtx = {
-    live: negotiating && threadLive,
-    kind: threadLive ? (order?.matchComplaint?.kind ?? null) : 'no_contact',
-    awaiting: threadLive && order?.matchComplaint?.status === 'awaiting_customer',
-    extras: order?.extras ?? [],
+  // Har bir suhbat uchun alohida: faqat hozirgi usta bilan suhbat "jonli", arxivdagilar o'tgan.
+  const ctxFor = (th) => {
+    const live = !!th?.isActive || (workerId == null && single);
+    return {
+      live: negotiating && live,
+      kind: live ? (order?.matchComplaint?.kind ?? null) : 'no_contact',
+      awaiting: live && order?.matchComplaint?.status === 'awaiting_customer',
+      extras: order?.extras ?? [],
+    };
   };
+  const archivedOnly =
+    !!chat && chat.threads.length > 0 && chat.threads.every((th) => !th.isActive);
   const workerOffer = negotiating && order.offerBy !== 'customer' && order.offerPrice != null;
   // Aniq ustaga yozilganda: suhbat bor bo'lsa faqat u faol bo'lganda, hali boshlanmagan bo'lsa — taklif turgani uchun mumkin.
   const canSend = workerId != null ? (thread ? thread.isActive : true) : chat ? chat.canSend : true;
@@ -180,11 +192,34 @@ export default function RequestChatScreen({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {messages.length === 0 && (
+          {shownThreads.every((th) => th.messages.length === 0) && outbox.outbox.length === 0 && (
             <Text style={[s.empty, { color: t.faint }]}>{tr('requests.chatEmpty')}</Text>
           )}
-          {messages.map((m) => (
-            <MessageBubble key={m.id} message={m} t={t} tr={tr} ctx={bubbleCtx} />
+          {single ? (
+            <Messages thread={thread} t={t} tr={tr} ctx={ctxFor(thread)} />
+          ) : (
+            shownThreads.map((th, i) => (
+              <ThreadBlock
+                key={th.workerId ?? 'none'}
+                thread={th}
+                last={i === shownThreads.length - 1}
+                t={t}
+                tr={tr}
+                ctx={ctxFor(th)}
+              />
+            ))
+          )}
+          {/* Hali serverda saqlanmagan qatorlar: ketyapti, rad etildi yoki yuborilmadi. */}
+          {outbox.outbox.map((o) => (
+            <OutgoingBubble
+              key={o.key}
+              line={o}
+              t={t}
+              tr={tr}
+              onRetry={() => outbox.retry(o.key)}
+              onEdit={() => editLine(o.key)}
+              onRemove={() => outbox.remove(o.key)}
+            />
           ))}
         </ScrollView>
 
@@ -225,9 +260,11 @@ export default function RequestChatScreen({
                 style={[s.actionTxt, { color: workerOffer ? t.text : '#fff' }]}
                 numberOfLines={1}
               >
-                {order.offerPrice != null
-                  ? tr('requests.counterShort')
-                  : tr('orderFlow.stage.offer')}
+                {order.platformPrice != null
+                  ? tr('platformPrice.changeDay')
+                  : order.offerPrice != null
+                    ? tr('requests.counterShort')
+                    : tr('orderFlow.stage.offer')}
               </Text>
             </TouchableOpacity>
             {workerOffer && (
@@ -276,7 +313,7 @@ export default function RequestChatScreen({
               style={[s.sendBtn, { backgroundColor: text.trim() ? t.orange : t.card3 }]}
               activeOpacity={0.85}
               onPress={send}
-              disabled={!text.trim() || sending}
+              disabled={!text.trim()}
             >
               <MaterialCommunityIcons name="send" size={20} color="#fff" />
             </TouchableOpacity>
@@ -288,7 +325,9 @@ export default function RequestChatScreen({
               { color: t.faint, borderTopColor: t.border, paddingBottom: 14 + bottomInset },
             ]}
           >
-            {tr('requests.chatClosed')}
+            {archivedOnly && order?.rawStatus !== 'cancelled' && order?.rawStatus !== 'completed'
+              ? tr('orderChat.archivedOnly')
+              : tr('requests.chatClosed')}
           </Text>
         )}
       </KeyboardAvoidingView>
@@ -309,7 +348,144 @@ export default function RequestChatScreen({
   );
 }
 
-function MessageBubble({ message: m, t, tr, ctx }) {
+// Yuborilgan xabar holati belgilari: ketyapti (soat), yetkazildi (✓), o'qildi (✓✓), yuborilmadi (!).
+const TICK_ICON = {
+  pending: 'clock-outline',
+  sent: 'check',
+  read: 'check-all',
+  failed: 'alert-circle-outline',
+};
+const TICK_LABEL = { pending: 'pending', sent: 'sent', read: 'read', failed: 'notSent' };
+
+// Xabar vaqti va (o'zimniki bo'lsa) holat belgisi.
+function Meta({ at, tick, color, readColor, tr }) {
+  return (
+    <View style={s.metaRow}>
+      <Text style={[s.bubbleTime, { color }]}>{clockLabel(at)}</Text>
+      {!!tick && (
+        <MaterialCommunityIcons
+          name={TICK_ICON[tick]}
+          size={14}
+          color={tick === 'read' ? readColor : color}
+          accessibilityLabel={tr(`orderChat.${TICK_LABEL[tick]}`)}
+        />
+      )}
+    </View>
+  );
+}
+
+// Bitta suhbatning xabarlari: o'zimniki ostida yetkazildi/o'qildi belgisi (`peerReadId` gacha o'qilgan).
+function Messages({ thread, t, tr, ctx }) {
+  const peerRead = thread?.peerReadId ?? 0;
+  return (
+    <>
+      {(thread?.messages ?? []).map((m) => (
+        <MessageBubble
+          key={m.id}
+          message={m}
+          t={t}
+          tr={tr}
+          ctx={ctx}
+          tick={m.from === 'me' ? (m.id <= peerRead ? 'read' : 'sent') : undefined}
+        />
+      ))}
+    </>
+  );
+}
+
+// Bir nechta usta bilan suhbat bo'lsa har biri alohida blok: hozirgisi ochiq, avvalgilari "Arxiv" bo'lib yig'iladi.
+function ThreadBlock({ thread, last, t, tr, ctx }) {
+  const [open, setOpen] = useState(thread.isActive || last);
+  const name = thread.workerName ?? tr('orderChat.unknownWorker');
+  return (
+    <View
+      style={[
+        s.thread,
+        !thread.isActive && { borderColor: t.border, borderWidth: 1, backgroundColor: t.card },
+      ]}
+    >
+      <TouchableOpacity
+        style={s.threadHead}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((v) => !v)}
+      >
+        <Avatar letter={name.trim()[0]?.toUpperCase() ?? '?'} uri={thread.workerPhoto} size={28} />
+        <Text style={[s.threadName, { color: t.text }]} numberOfLines={1}>
+          {name}
+        </Text>
+        {!thread.isActive && (
+          <View style={s.archived}>
+            <MaterialCommunityIcons name="archive-outline" size={14} color={t.faint} />
+            <Text style={[s.archivedTxt, { color: t.faint }]}>{tr('orderChat.archived')}</Text>
+          </View>
+        )}
+        <Text style={[s.toggle, { color: t.faint }]}>
+          {open ? tr('orderChat.hide') : tr('orderChat.show')}
+        </Text>
+      </TouchableOpacity>
+      {open && (
+        <View style={s.threadBody}>
+          <Messages thread={thread} t={t} tr={tr} ctx={ctx} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Hali serverda saqlanmagan qator. Rad etilgan bo'lsa sababi va "Tahrirlash"/"O'chirish", javob kelmagan
+// bo'lsa "Qayta yuborish"/"O'chirish".
+function OutgoingBubble({ line, t, tr, onRetry, onEdit, onRemove }) {
+  const failed = line.state !== 'pending';
+  return (
+    <View style={s.outgoing}>
+      <View
+        style={[
+          s.bubble,
+          {
+            alignSelf: 'flex-end',
+            borderBottomRightRadius: 4,
+            backgroundColor: failed ? t.card : t.orange,
+            borderColor: failed ? t.red + '66' : 'transparent',
+            borderWidth: 1,
+            opacity: failed ? 1 : 0.8,
+          },
+        ]}
+      >
+        <Text style={[s.bubbleText, { color: failed ? t.text : '#fff' }]}>{line.body}</Text>
+        <Meta
+          at={line.createdAt}
+          tick={failed ? 'failed' : 'pending'}
+          color={failed ? t.red : 'rgba(255,255,255,0.8)'}
+          readColor="#fff"
+          tr={tr}
+        />
+      </View>
+      {failed && (
+        <View style={s.why}>
+          {!!line.reason && <Text style={[s.reason, { color: t.red }]}>{line.reason}</Text>}
+          <View style={s.whyActions}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={line.state === 'failed' ? onRetry : onEdit}
+            >
+              <Text style={[s.link, { color: t.orange }]}>
+                {line.state === 'failed' ? tr('orderChat.retry') : tr('orderChat.edit')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity accessibilityRole="button" hitSlop={8} onPress={onRemove}>
+              <Text style={[s.link, { color: t.muted }]}>{tr('orderChat.remove')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function MessageBubble({ message: m, t, tr, ctx, tick }) {
   if (m.kind === 'system') {
     // Backend matn o'rniga kalit (order_agreed, order_extra_approved...) yuboradi: mijoz nuqtai
     // nazaridagi matnga o'giriladi, noma'lum kalit yashiriladi.
@@ -360,7 +536,7 @@ function MessageBubble({ message: m, t, tr, ctx }) {
             {extraStatusText(tr, extra)}
           </Text>
         )}
-        <Text style={[s.bubbleTime, { color: t.faint }]}>{clockLabel(m.at)}</Text>
+        <Meta at={m.at} tick={tick} color={t.faint} readColor={t.orange} tr={tr} />
       </View>
     );
   }
@@ -392,7 +568,7 @@ function MessageBubble({ message: m, t, tr, ctx }) {
             <Text style={[s.offerWhenTxt, { color: t.text }]}>{offerWhen}</Text>
           </View>
         )}
-        <Text style={[s.bubbleTime, { color: t.faint }]}>{clockLabel(m.at)}</Text>
+        <Meta at={m.at} tick={tick} color={t.faint} readColor={t.orange} tr={tr} />
       </View>
     );
   }
@@ -407,9 +583,13 @@ function MessageBubble({ message: m, t, tr, ctx }) {
       ]}
     >
       <Text style={[s.bubbleText, { color: mine ? '#fff' : t.text }]}>{m.body}</Text>
-      <Text style={[s.bubbleTime, { color: mine ? 'rgba(255,255,255,0.75)' : t.faint }]}>
-        {clockLabel(m.at)}
-      </Text>
+      <Meta
+        at={m.at}
+        tick={tick}
+        color={mine ? 'rgba(255,255,255,0.75)' : t.faint}
+        readColor="#fff"
+        tr={tr}
+      />
     </View>
   );
 }
@@ -506,7 +686,20 @@ const s = StyleSheet.create({
   system: { fontSize: 12, fontWeight: '600', textAlign: 'center', flexShrink: 1 },
   bubble: { maxWidth: '82%', borderRadius: 16, paddingHorizontal: 13, paddingVertical: 9, gap: 3 },
   bubbleText: { fontSize: 14.5, lineHeight: 20 },
-  bubbleTime: { fontSize: 10, alignSelf: 'flex-end' },
+  bubbleTime: { fontSize: 10 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-end', gap: 3 },
+  thread: { borderRadius: 16, overflow: 'hidden', gap: 6, paddingBottom: 6 },
+  threadHead: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8 },
+  threadName: { flex: 1, fontSize: 13.5, fontWeight: '800' },
+  threadBody: { gap: 8, paddingHorizontal: 8 },
+  archived: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  archivedTxt: { fontSize: 11.5, fontWeight: '700' },
+  toggle: { fontSize: 12, fontWeight: '600' },
+  outgoing: { gap: 4 },
+  why: { alignSelf: 'flex-end', maxWidth: '82%', gap: 4 },
+  reason: { fontSize: 12, lineHeight: 17 },
+  whyActions: { flexDirection: 'row', gap: 16, justifyContent: 'flex-end' },
+  link: { fontSize: 13, fontWeight: '800' },
   extraStatus: { fontSize: 12, fontWeight: '700', marginTop: 2 },
   offer: {
     borderRadius: 18,

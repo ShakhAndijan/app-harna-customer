@@ -1,15 +1,26 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import Avatar from '../../../components/Avatar';
+import UrgentTag, { isUrgentOpen } from '../../../components/UrgentTag';
+import ListingTag from '../../../components/ListingTag';
 import { getOrderBrief } from '../../../api/orders';
 import { timeAgo } from '../../listings/utils';
 import { describeOrder, formatPrice } from '../utils';
+import DepositPayStep from '../../deposit/DepositPayStep';
 
 const STEPS = 3;
-const STEP_OF = { pending: 0, returned: 0, negotiating: 1, offer: 1, active: 2, workDone: 2 };
+const STEP_OF = {
+  depositWait: 0,
+  pending: 0,
+  returned: 0,
+  negotiating: 1,
+  offer: 1,
+  active: 2,
+  workDone: 2,
+};
 
 // Bosqichlar (qidiruv → kelishuv → ish): kichik bo'lakli chiziq.
 function Progress({ current, color, t }) {
@@ -31,6 +42,7 @@ function Progress({ current, color, t }) {
 export default function RequestCard({ order, title, onPress }) {
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
+  const queryClient = useQueryClient();
   const info = describeOrder(order, tr);
   const color = t[info.tone] ?? t.orange;
   // Javobingiz/tanlovingiz/tasdiqingiz kutilayotgan buyurtmalar to'q sariq ramkada ("shoshilinch").
@@ -38,6 +50,8 @@ export default function RequestCard({ order, title, onPress }) {
     info.state === 'offer' ||
     info.state === 'workDone' ||
     (info.state === 'pending' && !order.master && order.offersCount > 0);
+  // Shoshilinch buyurtma qizil ramka va belgi bilan ajralib turadi (javob kutilayotgan to'q sariq ramkadan ustun).
+  const urgent = isUrgentOpen(order);
   let price = null;
   if (info.state === 'offer') price = order.offerPrice;
   else if (info.state === 'active' || info.state === 'workDone') price = order.agreedPrice;
@@ -67,16 +81,19 @@ export default function RequestCard({ order, title, onPress }) {
         s.card,
         {
           backgroundColor: t.card,
-          borderColor: needsReply ? t.orange : t.border,
+          borderColor: urgent ? t.red : needsReply ? t.orange : t.border,
         },
       ]}
     >
       <View style={s.head}>
-        <View style={[s.pill, { backgroundColor: color + '1f' }]}>
-          <MaterialCommunityIcons name={info.icon} size={14} color={color} />
-          <Text style={[s.pillTxt, { color }]} numberOfLines={1}>
-            {info.short}
-          </Text>
+        <View style={s.tags}>
+          <View style={[s.pill, { backgroundColor: color + '1f' }]}>
+            <MaterialCommunityIcons name={info.icon} size={14} color={color} />
+            <Text style={[s.pillTxt, { color }]} numberOfLines={1}>
+              {info.short}
+            </Text>
+          </View>
+          <UrgentTag order={order} />
         </View>
         {!!ago && (
           <Text style={[s.ago, { color: t.faint }]} numberOfLines={1}>
@@ -84,6 +101,8 @@ export default function RequestCard({ order, title, onPress }) {
           </Text>
         )}
       </View>
+
+      <ListingTag order={order} />
 
       <View style={s.titleRow}>
         <Text style={[s.title, { color: t.text }]} numberOfLines={1}>
@@ -127,6 +146,13 @@ export default function RequestCard({ order, title, onPress }) {
         </View>
         <Progress current={STEP_OF[info.state] ?? 0} color={color} t={t} />
       </View>
+
+      {/* Omonat kutilmoqda: shu yerning o'zida to'lanadi. */}
+      <DepositPayStep
+        order={order}
+        compact
+        onChanged={() => queryClient.invalidateQueries({ queryKey: ['orders'] })}
+      />
     </TouchableOpacity>
   );
 }
@@ -134,6 +160,7 @@ export default function RequestCard({ order, title, onPress }) {
 const s = StyleSheet.create({
   card: { borderRadius: 20, borderWidth: 1.5, padding: 12 },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  tags: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

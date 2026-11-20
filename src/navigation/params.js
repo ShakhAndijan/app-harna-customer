@@ -53,7 +53,14 @@ export const requestRoute = (order) => ({
   params: { id: String(order?.id ?? '') },
 });
 
-const OPEN_STATUSES = ['pending', 'accepted', 'active'];
+// Yangi buyurtma yaratilgach: omonat kutayotgan (`awaiting_deposit`) buyurtma to'lov qadami bilan ochiladi,
+// qolgani bosh sahifaga o'tadi (u yerda "Faol buyurtmalar"da ko'rinadi).
+export const afterOrderCreatedRoute = (created) =>
+  created?.raw?.status === 'awaiting_deposit' && created.id != null
+    ? requestRoute({ id: created.id })
+    : '/home';
+
+const OPEN_STATUSES = ['awaiting_deposit', 'pending', 'accepted', 'active'];
 export const orderOrRequestRoute = (order) =>
   OPEN_STATUSES.includes(order?.rawStatus) ? requestRoute(order) : orderRoute(order);
 

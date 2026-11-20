@@ -8,6 +8,7 @@ export default function LandingRoute() {
     <LandingScreen
       onLogin={() => router.push('/login')}
       // VAQTINCHA yashirilgan: hisobsiz buyurtma tugmasi. Qaytarish: onOrder={() => router.push('/guest-order')}
+      onHelp={() => router.push('/help')}
       onSelectUsta={(usta) => router.push(ustaRoute(usta))}
     />
   );

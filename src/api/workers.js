@@ -52,6 +52,8 @@ export function mapWorker(w) {
     reliability_badge: w.reliability_badge ?? 'none',
     vip_status: w.vip_status ?? 'none',
     reviewCount: w.review_count ?? 0,
+    // Kartadagi "14 ta ish": faqat qidiruv javobida keladi (profilda `completed_jobs_count`).
+    completedJobCount: w.completed_job_count ?? 0,
     // Joylashuv kiritilmagan ustalar uchun null; `distanceKm` faqat near_lat/near_lon bilan so'ralganda keladi.
     latitude: w.latitude != null ? Number(w.latitude) : null,
     longitude: w.longitude != null ? Number(w.longitude) : null,
@@ -283,6 +285,10 @@ export function mapWorkerDetail(w) {
     reviewCount: w.review_count ?? 0,
     completedJobsCount: w.completed_jobs_count ?? 0,
     likesCount: w.likes_count ?? 0,
+    // Ochiq "yoqtirish"ni shu mijoz bosganmi (mehmon yoki usta ko'rsa false).
+    likedByMe: w.liked_by_me === true,
+    // «Vaqtida keladi: N%» — oxirgi 90 kun; namuna yetmasa null.
+    onTimePercent: w.on_time_percent != null ? Number(w.on_time_percent) : null,
     ratingBreakdown: ratingBreakdown && {
       5: ratingBreakdown.five ?? 0,
       4: ratingBreakdown.four ?? 0,
@@ -414,6 +420,38 @@ export async function getContestWinners({ limit = 12 } = {}) {
         worker: mapWorker(x.worker),
       })),
   };
+}
+
+const mapLike = (data) => ({
+  likesCount: Number(data?.likes_count) || 0,
+  liked: data?.liked === true,
+});
+
+/**
+ * Ustani ochiq "yoqtirish" (POST) / olib tashlash (DELETE): server yangi sonni qaytaradi.
+ * @param {number|string} workerId
+ * @returns {Promise<{ likesCount: number, liked: boolean }>}
+ */
+export async function likeWorker(workerId) {
+  return mapLike(
+    await request(ENDPOINTS.WORKER_LIKE(workerId), {
+      method: 'POST',
+      fallbackMessage: "Yoqtirib bo'lmadi",
+    })
+  );
+}
+
+/**
+ * @param {number|string} workerId
+ * @returns {Promise<{ likesCount: number, liked: boolean }>}
+ */
+export async function unlikeWorker(workerId) {
+  return mapLike(
+    await request(ENDPOINTS.WORKER_LIKE(workerId), {
+      method: 'DELETE',
+      fallbackMessage: "Yoqtirishni olib bo'lmadi",
+    })
+  );
 }
 
 // Shaxsiy sevimlilar (POST 201 / DELETE 200, ikkalasi idempotent). Ochiq "layk"

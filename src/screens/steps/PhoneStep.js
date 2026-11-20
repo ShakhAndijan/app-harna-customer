@@ -32,6 +32,9 @@ export default function PhoneStep({
   error,
   onGoogle,
   googleLoading,
+  telegramLoginEnabled = false,
+  onTelegramLogin,
+  telegramLoginLoading = false,
   otpChannels = null,
   googleEnabled = true,
   onBack,
@@ -62,8 +65,15 @@ export default function PhoneStep({
   const hasChannel = (name) => !otpChannels || otpChannels.includes(name);
   const primaryChannel = hasChannel('sms') ? 'sms' : (otpChannels[0] ?? 'sms');
   const ctaLoading = primaryChannel === 'telegram' ? telegramLoading : loginLoading;
-  const showTelegram = hasChannel('telegram') && primaryChannel !== 'telegram';
+  const showTelegramOtp = hasChannel('telegram') && primaryChannel !== 'telegram';
+  // Telegram vidjeti yoqilgan bo'lsa ijtimoiy qatordagi tugma vidjetni ochadi, kod olish esa kichik ssilkaga tushadi.
+  const showTelegram = telegramLoginEnabled || showTelegramOtp;
   const showSocial = googleEnabled || showTelegram;
+  const telegramBusy = telegramLoginEnabled ? telegramLoginLoading : telegramLoading;
+  const telegramDisabled = telegramLoginEnabled
+    ? telegramLoginLoading
+    : anyOtpLoading || !telegramReady;
+  const telegramPress = telegramLoginEnabled ? onTelegramLogin : () => onRequestOtp('telegram');
   const handleCta = () => onRequestOtp(primaryChannel);
 
   return (
@@ -194,6 +204,32 @@ export default function PhoneStep({
             )}
           </TouchableOpacity>
 
+          {/* ── Telegram vidjeti yoqilganda: Telegram-bot orqali kod olish ssilkasi ── */}
+          {telegramLoginEnabled && showTelegramOtp && (
+            <TouchableOpacity
+              style={s.switchRow}
+              onPress={
+                telegramReady && !anyOtpLoading
+                  ? guarded(() => onRequestOtp('telegram'))
+                  : undefined
+              }
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: !telegramReady || anyOtpLoading }}
+            >
+              {telegramLoading ? (
+                <ActivityIndicator size="small" color="#229ED9" />
+              ) : (
+                <Ionicons name="paper-plane" size={15} color="#229ED9" />
+              )}
+              <Text
+                style={[s.switchLink, { color: theme.muted }, !telegramReady && s.socBtnDisabled]}
+              >
+                {t('telegramLogin.codeVia')}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {/* ── Kirish usulini almashtirish: email <-> telefon ── */}
           <TouchableOpacity
             style={s.switchRow}
@@ -267,16 +303,12 @@ export default function PhoneStep({
                 style={[
                   s.socBtn,
                   { borderColor: theme.border, backgroundColor: theme.card },
-                  !telegramReady && s.socBtnDisabled,
+                  telegramDisabled && s.socBtnDisabled,
                 ]}
-                onPress={
-                  anyOtpLoading || !telegramReady
-                    ? undefined
-                    : guarded(() => onRequestOtp('telegram'))
-                }
+                onPress={telegramDisabled ? undefined : guarded(telegramPress)}
                 activeOpacity={0.85}
               >
-                {telegramLoading ? (
+                {telegramBusy ? (
                   <ActivityIndicator size="small" color="#229ED9" />
                 ) : (
                   <Ionicons name="paper-plane" size={20} color="#229ED9" />

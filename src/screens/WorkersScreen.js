@@ -24,6 +24,7 @@ import AppLoader from '../components/AppLoader';
 import ListingCard from '../components/ListingCard';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { askLocation } from '../utils/permissions';
 import { useAuth } from '../context/AuthContext';
 import LocationMapPicker from '../components/LocationMapPicker';
 import { useWorkersFeed } from '../queries/workers';
@@ -214,12 +215,15 @@ export default function WorkersScreen({ onBack }) {
     }
     setLocating(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        appAlert(tr('workersList.nearbyDeniedTitle'), tr('workersList.nearbyDeniedMsg'), [
-          { text: tr('common.cancel'), style: 'cancel' },
-          { text: tr('workersList.pickOnMap'), onPress: () => setPickerOpen(true) },
-        ]);
+      // Tizim so'rovidan oldin sabab aytiladi; "Keyinroq" (null) — jim qaytamiz.
+      const granted = await askLocation(tr, 'nearby', { again: true });
+      if (granted !== true) {
+        if (granted === false) {
+          appAlert(tr('workersList.nearbyDeniedTitle'), tr('workersList.nearbyDeniedMsg'), [
+            { text: tr('common.cancel'), style: 'cancel' },
+            { text: tr('workersList.pickOnMap'), onPress: () => setPickerOpen(true) },
+          ]);
+        }
         return;
       }
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
@@ -273,6 +277,7 @@ export default function WorkersScreen({ onBack }) {
     const card = {
       ...toListingCardShape(w, tr),
       reviewCount: w.reviewCount,
+      completedJobCount: w.completedJobCount,
       tags: w.skills.slice(0, 3),
     };
     if (w.mainCategory) card.title = w.mainCategory;

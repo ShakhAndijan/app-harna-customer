@@ -26,6 +26,7 @@ import GenderToggle from './edit-profile/components/GenderToggle';
 import LocationField from './edit-profile/components/LocationField';
 import OptionSheet from './edit-profile/components/OptionSheet';
 import BirthDateSheet from './edit-profile/components/BirthDateSheet';
+import LockedIdentity from './edit-profile/components/LockedIdentity';
 import useBottomInset from '../hooks/useBottomInset';
 
 // Profilni tahrirlash: shaxsiy ma'lumot, aloqa va manzil. Forma holati `useProfileForm` da,
@@ -73,30 +74,43 @@ export default function EditProfileScreen({ onBack }) {
           keyboardShouldPersistTaps="handled"
         >
           <FormSection title={tr('editProfile.groups.personal')}>
-            <TextField
-              label={tr('editProfile.firstNameLabel')}
-              value={v.firstName}
-              onChangeText={(x) => setField('firstName', x)}
-              placeholder={tr('editProfile.firstNamePlaceholder')}
-            />
-            <TextField
-              label={tr('editProfile.lastNameLabel')}
-              value={v.lastName}
-              onChangeText={(x) => setField('lastName', x)}
-              placeholder={tr('editProfile.lastNamePlaceholder')}
-            />
+            {v.namesLocked ? (
+              <LockedIdentity
+                firstName={v.firstName}
+                lastName={v.lastName}
+                middleName={v.middleName}
+                birthDate={v.birthDate}
+              />
+            ) : (
+              <>
+                <TextField
+                  label={tr('editProfile.firstNameLabel')}
+                  value={v.firstName}
+                  onChangeText={(x) => setField('firstName', x)}
+                  placeholder={tr('editProfile.firstNamePlaceholder')}
+                />
+                <TextField
+                  label={tr('editProfile.lastNameLabel')}
+                  value={v.lastName}
+                  onChangeText={(x) => setField('lastName', x)}
+                  placeholder={tr('editProfile.lastNamePlaceholder')}
+                />
+              </>
+            )}
             <GenderToggle
               genders={lists.genders}
               selectedId={v.genderId}
               onSelect={(id) => setField('genderId', id)}
               loading={lists.gendersLoading}
             />
-            <SelectField
-              label={tr('editProfile.birthDateLabel')}
-              value={formatDisplayDate(v.birthDate)}
-              placeholder={tr('editProfile.birthDatePlaceholder')}
-              onPress={() => setSheet('date')}
-            />
+            {v.namesLocked ? null : (
+              <SelectField
+                label={tr('editProfile.birthDateLabel')}
+                value={formatDisplayDate(v.birthDate)}
+                placeholder={tr('editProfile.birthDatePlaceholder')}
+                onPress={() => setSheet('date')}
+              />
+            )}
           </FormSection>
 
           <FormSection title={tr('editProfile.groups.contact')}>

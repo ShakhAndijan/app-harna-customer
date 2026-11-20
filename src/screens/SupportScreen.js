@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -44,6 +45,13 @@ export default function SupportScreen({ kind: initialKind = 'question', onBack }
   const text = body.trim();
   const tooShort = text.length < SUPPORT_MIN_LENGTH;
   const name = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim();
+
+  // Tortib yangilash: murojaatlar ro'yxati qayta o'qiladi.
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = () => {
+    setRefreshing(true);
+    items.refetch().finally(() => setRefreshing(false));
+  };
 
   const switchKind = (next) => {
     setKind(next);
@@ -102,6 +110,14 @@ export default function SupportScreen({ kind: initialKind = 'question', onBack }
       >
         <ScrollView
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              tintColor={t.orange}
+              colors={[t.orange]}
+            />
+          }
           contentContainerStyle={{
             paddingHorizontal: 20,
             paddingTop: 14,

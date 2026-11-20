@@ -3,6 +3,9 @@ import Feather from '@expo/vector-icons/Feather';
 import { useTheme } from '../../../context/ThemeContext';
 import { useLanguage } from '../../../context/LanguageContext';
 import { formatOrderDate, formatHours } from '../utils';
+import { orderExtraRows } from '../extraFields';
+
+const EXTRA_ICONS = { preferred: 'sunrise', tools: 'tool', age: 'user' };
 
 function Row({ icon, label, value, t, last }) {
   return (
@@ -39,6 +42,7 @@ export default function OrderSummary({ order, title }) {
       label: tr('orderDetail.estimatedHours'),
       value: tr('orderDetail.hours', { n: formatHours(order.estimatedHours) }),
     },
+    ...orderExtraRows(order, tr).map((row) => ({ ...row, icon: EXTRA_ICONS[row.key] })),
   ].filter(Boolean);
 
   return (

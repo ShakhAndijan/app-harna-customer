@@ -21,9 +21,29 @@ export function subscribeRealtime(fn) {
   return () => eventListeners.delete(fn);
 }
 
+// Usta manzil nuqtasini so'ragan buyurtmalar: buyurtma qachon ochilmasin, pin kartasi yorqin turadi.
+const pinAsked = new Set();
+const pinListeners = new Set();
+
+const subscribePin = (fn) => {
+  pinListeners.add(fn);
+  return () => pinListeners.delete(fn);
+};
+
 export function emitRealtime(event, payload) {
+  if (event === 'order.location_request') {
+    const id = Number(payload?.order_id);
+    if (Number.isFinite(id) && !pinAsked.has(id)) {
+      pinAsked.add(id);
+      pinListeners.forEach((fn) => fn());
+    }
+  }
   eventListeners.forEach((fn) => fn(event, payload));
 }
+
+/** Usta shu buyurtma uchun pin so'ragan (ilova ishlayotganda `order.location_request` kelgan). */
+export const usePinAsked = (orderId) =>
+  useSyncExternalStore(subscribePin, () => pinAsked.has(Number(orderId)));
 
 const subscribeStatus = (fn) => {
   statusListeners.add(fn);

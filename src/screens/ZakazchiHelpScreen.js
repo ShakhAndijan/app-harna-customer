@@ -6,9 +6,12 @@ import { useRouter } from 'expo-router';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { useFaq } from '../queries/support';
 import { FAQ_ITEMS } from '../i18n/siteTexts';
-import { SUPPORT_CONTACT } from '../constants/config';
+import { useSupportContact } from '../queries/siteConfig';
+import { telHref } from '../utils/siteLinks';
+import SiteLinks from '../components/SiteLinks';
 import { documentRoute, supportRoute } from '../navigation/params';
 import useBottomInset from '../hooks/useBottomInset';
 
@@ -65,48 +68,55 @@ export default function ZakazchiHelpScreen({ onBack }) {
   const router = useRouter();
   const { theme: t } = useTheme();
   const { language, t: tr } = useLanguage();
+  const { signedIn } = useAuth();
+  // Telefon, email va Telegram saytning config.json'idan (u yo'q bo'lsa — qattiq kodlangan zaxira).
+  const contact = useSupportContact();
   const faq = useFaq();
   const faqItems = faq.data ?? FAQ_ITEMS[language] ?? FAQ_ITEMS.uz;
 
   const contacts = [
-    {
-      key: 'chat',
-      icon: 'message-text',
-      bg: '#e87a45',
-      sub: tr('help.chatSub'),
-      onPress: () => router.push('/support-chat'),
-    },
-    ...(SUPPORT_CONTACT.phone
+    // Yozishma hisobga bog'langan — mehmonga faqat telefon/email va "Savol/Taklif" shakllari ko'rsatiladi.
+    ...(signedIn
+      ? [
+          {
+            key: 'chat',
+            icon: 'message-text',
+            bg: '#e87a45',
+            sub: tr('help.chatSub'),
+            onPress: () => router.push('/support-chat'),
+          },
+        ]
+      : []),
+    ...(contact.phone
       ? [
           {
             key: 'call',
             icon: 'phone',
             bg: '#2fa37a',
-            sub: SUPPORT_CONTACT.phone,
-            onPress: () => Linking.openURL(`tel:${SUPPORT_CONTACT.phone}`),
+            sub: contact.phone,
+            onPress: () => Linking.openURL(telHref(contact.phone)),
           },
         ]
       : []),
-    ...(SUPPORT_CONTACT.telegram
+    ...(contact.telegram
       ? [
           {
             key: 'telegram',
             icon: 'send',
             bg: '#2aabee',
-            sub: SUPPORT_CONTACT.telegram,
-            onPress: () =>
-              Linking.openURL(`https://t.me/${SUPPORT_CONTACT.telegram.replace(/^@/, '')}`),
+            sub: contact.telegramLabel,
+            onPress: () => Linking.openURL(contact.telegram),
           },
         ]
       : []),
-    ...(SUPPORT_CONTACT.email
+    ...(contact.email
       ? [
           {
             key: 'email',
             icon: 'email-outline',
             bg: '#3f7fd4',
-            sub: SUPPORT_CONTACT.email,
-            onPress: () => Linking.openURL(`mailto:${SUPPORT_CONTACT.email}`),
+            sub: contact.email,
+            onPress: () => Linking.openURL(`mailto:${contact.email}`),
           },
         ]
       : []),
@@ -269,6 +279,9 @@ export default function ZakazchiHelpScreen({ onBack }) {
             ))}
           </View>
         </View>
+
+        {/* ── Tarmoqlar, mutaxassislar ilovasi, manzil, reklama (config.json) ── */}
+        <SiteLinks style={{ marginTop: 24 }} />
       </ScrollView>
     </SafeAreaView>
   );

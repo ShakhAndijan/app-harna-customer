@@ -22,6 +22,8 @@ import useOrderDetail from './orders/hooks/useOrderDetail';
 import { STATUS_META, statusLabel, statusSubtext } from './orders/constants';
 import OrderDetailHeader from './orders/components/OrderDetailHeader';
 import StatusBanner from './orders/components/StatusBanner';
+import UrgentTag from '../components/UrgentTag';
+import ListingTag from '../components/ListingTag';
 import OrderSummary from './orders/components/OrderSummary';
 import SectionLabel from './orders/components/SectionLabel';
 import MasterCard from './orders/components/MasterCard';
@@ -39,9 +41,12 @@ import PaymentResult from './orders/components/PaymentResult';
 import OrderHistory, { historyRows } from './orders/components/OrderHistory';
 import GuaranteeCard from './orders/components/GuaranteeCard';
 import DescriptionCard from './orders/components/DescriptionCard';
+import DepositNotice from './deposit/DepositNotice';
+import { DEPOSIT_UNPAID } from './deposit/utils';
 import PromptModal from './requests/components/PromptModal';
 import RepostModal from './requests/components/RepostModal';
 import RateOrderModal from './orders/components/RateOrderModal';
+import WorkPhotosGallery from './orders/components/WorkPhotosGallery';
 import useOrderActions from './requests/hooks/useOrderActions';
 import { isOpenOrder } from './requests/utils';
 import useBottomInset from '../hooks/useBottomInset';
@@ -197,7 +202,8 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
 
   const beforePhotos = order.beforePhotos;
   // Bekor qilingan buyurtmada ish bajarilmagani uchun "keyin" rasmlari bo'lmaydi.
-  const afterPhotos = isCancelled ? [] : order.afterPhotos;
+  // Yangi serverda ustaning suratlari `workPhotos` galereyasida (urinish-urinish): eski "keyin" bo'limi takrorlanmaydi.
+  const afterPhotos = isCancelled || order.workPhotos ? [] : order.afterPhotos;
 
   const share = () => {
     const vars = { id: order.id, task: title, status: label };
@@ -234,6 +240,13 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
         }}
       >
         <StatusBanner meta={meta} label={label} subtext={statusSubtext(tr, order)} order={order} />
+        <UrgentTag order={order} />
+        <ListingTag order={order} style={{ marginTop: 8 }} />
+        {!!order.deposit && (
+          <View style={{ marginTop: 12 }}>
+            <DepositNotice order={order} onChanged={refresh} />
+          </View>
+        )}
         <OrderSummary order={order} title={title} />
         <DescriptionCard text={order.description} style={{ marginTop: 12 }} />
 
@@ -253,7 +266,11 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
             <SectionLabel t={t}>{tr('orderDetail.cancelReasonTitle')}</SectionLabel>
             <CancelReasonCard
               meta={meta}
-              reason={order.cancelReason}
+              reason={
+                order.cancelReason === DEPOSIT_UNPAID
+                  ? tr('deposit.unpaidReason')
+                  : order.cancelReason
+              }
               by={order.cancelledBy ? tr(`orderDetail.cancelledBy.${order.cancelledBy}`) : null}
             />
           </>
@@ -306,6 +323,15 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
               min={minAmount}
               max={maxAmount}
               blockedNote={payBlockedNote}
+              guaranteeNote={
+                providersQuery.data?.guaranteeEnabled
+                  ? providersQuery.data.guaranteeCap > 0
+                    ? tr('guarantee.banner', {
+                        cap: formatNumber(providersQuery.data.guaranteeCap),
+                      })
+                    : tr('guarantee.bannerNoCap')
+                  : null
+              }
               processing={order.paymentState === 'created'}
               onPay={pay}
               t={t}
@@ -330,6 +356,9 @@ export default function OrderDetailScreen({ order: listOrder, onBack, onSelectUs
             <OrderHistory order={order} />
           </>
         )}
+
+        {/* Ish suratlari (13.11): ustaning «oldin» va «keyin» suratlari, urinish-urinish. */}
+        <WorkPhotosGallery photos={order.workPhotos} />
 
         {beforePhotos.length > 0 && (
           <>

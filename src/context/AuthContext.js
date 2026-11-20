@@ -6,6 +6,7 @@ import { revokeSession } from '../api/auth';
 import { clearCachedUser } from './UserContext';
 import { queryClient } from '../queries/client';
 import { forgetPush, unregisterPush } from '../utils/push';
+import { forgetMyIdAttempt } from '../utils/myid';
 
 const AuthContext = createContext({
   signedIn: false,
@@ -30,6 +31,8 @@ export function AuthProvider({ children }) {
   const endSession = useCallback(async () => {
     await clearTokens();
     await clearCachedUser();
+    // Tugallanmagan MyID tekshiruvi keyingi hisobga o'tib ketmasin.
+    await forgetMyIdAttempt();
     // Oldingi foydalanuvchining keshlangan ma'lumoti keyingisiga ko'rinmasin.
     queryClient.clear();
     setSignedIn(false);

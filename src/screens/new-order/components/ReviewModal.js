@@ -15,12 +15,14 @@ import getReviewTexts from '../reviewTexts';
 import { common } from '../styles';
 import SummaryRow from './SummaryRow';
 import { formatPhone } from '../utils';
+import DepositNeedNotice from '../../deposit/DepositNeedNotice';
 
 export default function ReviewModal({
   visible,
   onClose,
   onConfirm,
   submitting,
+  depositNeed,
   t,
   tr,
   orderWorker,
@@ -33,6 +35,7 @@ export default function ReviewModal({
   floor,
   when,
   whenDate,
+  whenWindow,
   description,
   photos,
   workerCount,
@@ -48,6 +51,7 @@ export default function ReviewModal({
   requireVerified,
   minExperience,
   extraRequirements,
+  quote,
 }) {
   // "Qo'shimcha ma'lumotlar" yopiq turadi, bosilganda ochiladi.
   const [extraOpen, setExtraOpen] = useState(false);
@@ -65,6 +69,7 @@ export default function ReviewModal({
     {
       when,
       whenDate,
+      whenWindow,
       minRating,
       minExperience,
       pricingType,
@@ -78,6 +83,7 @@ export default function ReviewModal({
       floor,
       addressTitle,
       addressSubtitle,
+      quote,
     },
     tr
   );
@@ -89,6 +95,13 @@ export default function ReviewModal({
       label: tr('newOrder.targetWorkerLabel'),
       value: [orderWorker.name, orderWorker.trade].filter(Boolean).join(' — '),
     },
+    // E'lon orqali buyurtma: e'lon raqami (kodi) ham ko'rsatiladi.
+    !!orderWorker?.listingId &&
+      !!orderWorker.listingCode && {
+        icon: 'bullhorn-outline',
+        label: tr('orderHistory.listing'),
+        value: `#${orderWorker.listingCode}`,
+      },
     {
       icon: 'text-long',
       label: tr('newOrder.descriptionLabel'),
@@ -197,6 +210,9 @@ export default function ReviewModal({
             contentContainerStyle={{ padding: 16, paddingBottom: 12 }}
             showsVerticalScrollIndicator={false}
           >
+            {/* Omonat kerak bo'lsa: summa, to'lash vaqti va sababi — buyurtma shundan keyin e'lon qilinadi. */}
+            <DepositNeedNotice need={depositNeed} />
+
             <Text style={[s.groupTitle, { color: t.muted }]}>{tr('newOrder.step1Title')}</Text>
             <View style={[s.box, { backgroundColor: t.card, borderColor: t.border }]}>
               {renderRows(rows)}

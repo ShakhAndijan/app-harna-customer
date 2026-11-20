@@ -1,7 +1,9 @@
-import { Redirect } from 'expo-router';
+import VerifyIdentityScreen from '../../screens/VerifyIdentityScreen';
+import useGoBack from '../../navigation/useGoBack';
 
-// `harna://cabinet/verify` — server shaxsni tasdiqlash oqimidan (MyID) qaytaradigan manzil.
-// Android uni to'g'ridan-to'g'ri router'ga uzatishi mumkin: tasdiqlash ekraniga yo'naltiriladi.
+// `harna://cabinet/verify?session_id&status&auth_code` — MyID tekshiruvidan qaytish manzili. Android
+// havolani to'g'ridan-to'g'ri routerga beradi (yoki ilovani shu havola bilan yangidan ishga tushiradi):
+// ekran parametrlarni o'zi o'qib, javobni qayta ishlaydi (src/utils/myid.js).
 export default function CabinetVerifyRoute() {
-  return <Redirect href="/verify-identity" />;
+  return <VerifyIdentityScreen onBack={useGoBack()} />;
 }

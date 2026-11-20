@@ -14,7 +14,17 @@ import { formatNumber } from '../../../utils/format';
 // Bajarilgan buyurtma uchun onlayn to'lov: summa (buyurtma narxidan to'ldiriladi, o'zgartirsa bo'ladi)
 // va "Onlayn to'lash" tugmasi. Chegaradan tashqari summa yuborilmaydi — chegara raqami bilan aytiladi.
 // `blockedNote` berilsa (masalan, to'lov tizimi ulanmagan) tugma ishlamaydi.
-export default function PayCard({ amount, min, max, busy, blockedNote, processing, onPay, t }) {
+export default function PayCard({
+  amount,
+  min,
+  max,
+  busy,
+  blockedNote,
+  guaranteeNote,
+  processing,
+  onPay,
+  t,
+}) {
   const { t: tr } = useLanguage();
   const [text, setText] = useState(() => formatNumber(Math.round(amount)));
   const value = Number(text.replace(/\D/g, '')) || 0;
@@ -60,6 +70,12 @@ export default function PayCard({ amount, min, max, busy, blockedNote, processin
         </View>
       )}
       {!!note && <Text style={[s.note, { color: limitNote ? t.red : t.muted }]}>{note}</Text>}
+      {!!guaranteeNote && (
+        <View style={s.processing}>
+          <MaterialCommunityIcons name="shield-check-outline" size={16} color={t.green} />
+          <Text style={[s.note, { color: t.muted, flex: 1 }]}>{guaranteeNote}</Text>
+        </View>
+      )}
       <TouchableOpacity
         style={[s.btn, { backgroundColor: t.orange, opacity: disabled && !busy ? 0.45 : 1 }]}
         activeOpacity={0.85}

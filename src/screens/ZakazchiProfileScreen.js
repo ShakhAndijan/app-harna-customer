@@ -17,6 +17,7 @@ import { getCustomerMe, updateCustomerMe } from '../api/user';
 import AddressEditor from './addresses/components/AddressEditor';
 import { primaryFromMe } from './addresses/hooks/useAddresses';
 import { formatPhoneDisplay } from './profile/utils';
+import BlockedBanner from '../components/BlockedBanner';
 import ProfileCover from './profile/components/ProfileCover';
 import IncompleteProfileBanner from './profile/components/IncompleteProfileBanner';
 import MenuCard from './profile/components/MenuCard';
@@ -101,6 +102,13 @@ export default function ZakazchiProfileScreen() {
           onEdit={go('/edit-profile')}
           onLocationPress={openAddress}
           onOrdersPress={go('/orders')}
+        />
+
+        {/* Bloklangan hisob: muddati va sababi (blok tugagach yo'qoladi). */}
+        <BlockedBanner
+          until={meQuery.data?.blocked_until ?? user?.blocked_until}
+          reason={meQuery.data?.block_reason ?? user?.block_reason}
+          style={{ marginHorizontal: 16, marginTop: 14 }}
         />
 
         {!displayLocation && <IncompleteProfileBanner onPress={openAddress} />}

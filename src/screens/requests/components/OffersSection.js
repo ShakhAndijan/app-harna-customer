@@ -33,7 +33,8 @@ const AVATAR_COLORS = ['#2fa37a', '#e87a45', '#3f7fd4', '#ec4899', '#8b5cf6', '#
 
 // Ommaviy buyurtmaga kelgan takliflar (saytdagi "Takliflar"): ustani ko'rish, tanlash yoki rad etish.
 // Tanlansa usta kelishuvni tasdiqlashi kutiladi (buyurtma "kelishilmoqda" bosqichiga o'tadi).
-export default function OffersSection({ orderId, chooseUntil, onChanged }) {
+// `priced` — narxni platforma belgilagan buyurtma: takliflar shu narxda turadi, qarshi narx aytib bo'lmaydi.
+export default function OffersSection({ orderId, chooseUntil, onChanged, priced = false }) {
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
   const router = useRouter();
@@ -257,16 +258,18 @@ export default function OffersSection({ orderId, chooseUntil, onChanged }) {
                   <MaterialCommunityIcons name="chat-outline" size={17} color={t.blue} />
                   <Text style={[s.btnTxt, { color: t.blue }]}>{tr('orderFlow.talk.write')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[s.btn, { borderColor: t.line2, borderWidth: 1.5 }]}
-                  activeOpacity={0.8}
-                  disabled={busyId != null}
-                  onPress={() => setPriceFor(offer)}
-                >
-                  <Text style={[s.btnTxt, { color: t.text }]} numberOfLines={1}>
-                    {tr('orderFlow.talk.price')}
-                  </Text>
-                </TouchableOpacity>
+                {!priced && (
+                  <TouchableOpacity
+                    style={[s.btn, { borderColor: t.line2, borderWidth: 1.5 }]}
+                    activeOpacity={0.8}
+                    disabled={busyId != null}
+                    onPress={() => setPriceFor(offer)}
+                  >
+                    <Text style={[s.btnTxt, { color: t.text }]} numberOfLines={1}>
+                      {tr('orderFlow.talk.price')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
               <View style={s.actions}>
@@ -300,6 +303,7 @@ export default function OffersSection({ orderId, chooseUntil, onChanged }) {
           );
         })
       )}
+      {priced && <Text style={[s.hint, { color: t.muted }]}>{tr('platformPrice.offerNote')}</Text>}
       {offers.length > 0 && (
         <Text style={[s.hint, { color: t.muted }]}>{tr('orderFlow.match.chooseHint')}</Text>
       )}

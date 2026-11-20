@@ -215,6 +215,37 @@ export async function googleLogin(actorType = 'customer', consentVersion) {
 }
 
 /**
+ * "Telegram bilan davom etish" tugmasi uchun ochiq sozlama (GET /auth/telegram/config): server yoqqan bo'lsa
+ * `enabled` va vidjet uchun `bot_id`. Tugma faqat shu javobga qarab chiqadi (frontend nusxasiga emas).
+ * @returns {Promise<{ enabled: boolean, botId: number|null, botUsername: string|null }>}
+ */
+export async function getTelegramLoginConfig() {
+  const data = await request(ENDPOINTS.TELEGRAM_LOGIN_CONFIG, { auth: false });
+  return {
+    enabled: data?.enabled === true,
+    botId:
+      Number.isFinite(Number(data?.bot_id)) && data?.bot_id != null ? Number(data.bot_id) : null,
+    botUsername: data?.bot_username ?? null,
+  };
+}
+
+/**
+ * Telegram Login vidjetining javobi bo'yicha kirish yoki ro'yxatdan o'tish. `data` — vidjet qaytargan obyekt
+ * AYNAN o'zgartirilmagan holda (`hash` ham): imzo hamma maydonni qamraydi, keraksiz deb olib tashlansa tekshiruv buziladi.
+ * Yangi hisob uchun `consentVersion` majburiy (400 `consent_required` / `consent_outdated`). Hisobda telefon va email
+ * bo'lmaydi: ularni keyin profilda (yoki `PhonePrompt` orqali) to'ldiriladi.
+ * @returns {Promise<{ access_token: string, refresh_token: string }>}
+ */
+export async function telegramLogin(data, consentVersion) {
+  return authPost(
+    'telegramLogin',
+    ENDPOINTS.TELEGRAM_LOGIN_VERIFY,
+    { data, actor_type: 'customer', consent_version: consentVersion },
+    'Telegram orqali kirib bo‘lmadi'
+  );
+}
+
+/**
  * Chiqishda refresh tokenni serverda bekor qiladi (POST /auth/logout). Server tomoni idempotent,
  * foydalanuvchi baribir chiqadi — shuning uchun xato yoki tarmoq yo'qligi e'tiborga olinmaydi.
  */

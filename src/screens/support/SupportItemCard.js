@@ -2,6 +2,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { notificationDate } from '../notifications/utils';
+import { messageTime } from './utils';
 
 // Bitta murojaat / taklif: holat belgisi, sana va yozishma (mijoz xabari o'ngda, jamoa javobi chapda).
 export default function SupportItemCard({ item }) {
@@ -26,6 +27,7 @@ export default function SupportItemCard({ item }) {
             <View key={m.id} style={s.mineRow}>
               <View style={[s.bubble, { backgroundColor: t.orange + '1f' }]}>
                 <Text style={[s.text, { color: t.text }]}>{m.text}</Text>
+                <Text style={[s.time, { color: t.faint }]}>{messageTime(m.createdAt)}</Text>
               </View>
             </View>
           ) : (
@@ -33,6 +35,7 @@ export default function SupportItemCard({ item }) {
               <View style={[s.bubble, { backgroundColor: t.rowIconBg }]}>
                 <Text style={[s.team, { color: t.orange }]}>{tr('support.teamName')}</Text>
                 <Text style={[s.text, { color: t.text }]}>{m.text}</Text>
+                <Text style={[s.time, { color: t.faint }]}>{messageTime(m.createdAt)}</Text>
               </View>
             </View>
           )
@@ -53,4 +56,5 @@ const s = StyleSheet.create({
   bubble: { maxWidth: '88%', borderRadius: 14, paddingHorizontal: 13, paddingVertical: 10 },
   team: { fontSize: 12, fontWeight: '800', marginBottom: 3 },
   text: { fontSize: 14, lineHeight: 20 },
+  time: { fontSize: 11, marginTop: 4, alignSelf: 'flex-end' },
 });

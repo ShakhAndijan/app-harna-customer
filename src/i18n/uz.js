@@ -3,11 +3,43 @@
 import { ORDER_FLOW } from './orderFlowTexts';
 import { CHAT_SYSTEM } from './chatSystemTexts';
 import { ORDER_SAFETY } from './orderSafetyTexts';
+import { MYID_TEXTS } from './myidTexts';
+import { DEPOSIT_TEXTS } from './depositTexts';
+import { NOTIF_TEXTS } from './notifTexts';
+import { ARRIVAL_PIN_TEXTS } from './arrivalPinTexts';
+import { WORK_PHOTO_TEXTS } from './workPhotoTexts';
+import { ARRIVAL_WINDOW_TEXTS } from './arrivalWindowTexts';
+import { CHAT_TEXTS } from './chatTexts';
+import { TELEGRAM_LOGIN_TEXTS } from './telegramLoginTexts';
+import { PLATFORM_PRICE_TEXTS } from './platformPriceTexts';
+import { CATEGORY_SUGGEST_TEXTS } from './categorySuggestTexts';
+import { ORDER_EXTRA_TEXTS } from './orderExtraTexts';
+import { WORKER_STATS_TEXTS } from './workerStatsTexts';
+import { RELEASE_TEXTS } from './releaseTexts';
+import { GUEST_SUPPORT_TEXTS } from './guestSupportTexts';
+import { SITE_LINKS_TEXTS } from './siteLinksTexts';
+import { PERMISSION_TEXTS } from './permissionTexts';
 
 export const uz = {
   orderFlow: ORDER_FLOW.uz,
   chatSystem: CHAT_SYSTEM.uz,
   ...ORDER_SAFETY.uz,
+  ...MYID_TEXTS.uz,
+  ...DEPOSIT_TEXTS.uz,
+  ...NOTIF_TEXTS.uz,
+  ...ARRIVAL_PIN_TEXTS.uz,
+  ...WORK_PHOTO_TEXTS.uz,
+  ...ARRIVAL_WINDOW_TEXTS.uz,
+  ...CHAT_TEXTS.uz,
+  ...TELEGRAM_LOGIN_TEXTS.uz,
+  ...PLATFORM_PRICE_TEXTS.uz,
+  ...CATEGORY_SUGGEST_TEXTS.uz,
+  ...ORDER_EXTRA_TEXTS.uz,
+  ...WORKER_STATS_TEXTS.uz,
+  ...RELEASE_TEXTS.uz,
+  ...GUEST_SUPPORT_TEXTS.uz,
+  ...SITE_LINKS_TEXTS.uz,
+  ...PERMISSION_TEXTS.uz,
   common: {
     ok: 'OK',
     close: 'Yopish',
@@ -1199,6 +1231,7 @@ export const uz = {
     openListing: "E'lonni ochish",
     openAgain: 'Qayta buyurtma berish',
     openVerify: 'Tasdiqlashni ochish',
+    openComplaints: 'Shikoyatlarimni ochish',
     openAnswer: "Javobni ko'rish",
     close: 'Yopish',
     tabSettings: 'Sozlamalar',

@@ -20,13 +20,15 @@ export const formatDisplayDate = (iso) => {
 };
 
 // Backend jins/viloyat/tuman'ni obyekt ({id, name}) yoki oddiy id ko'rinishida qaytarishi mumkin.
-const idOf = (v) => (v && typeof v === 'object' ? v.id ?? null : v ?? null);
+const idOf = (v) => (v && typeof v === 'object' ? (v.id ?? null) : (v ?? null));
 
 export const EMPTY_PROFILE = {
   firstName: '',
   lastName: '',
   email: '',
   genderId: null,
+  middleName: '',
+  namesLocked: false,
   birthDate: '',
   regionId: null,
   districtId: null,
@@ -43,6 +45,8 @@ export function profileToForm(data) {
     lastName: data.last_name || '',
     email: data.email || '',
     genderId: idOf(data.gender),
+    middleName: data.middle_name || '',
+    namesLocked: data.names_locked === true,
     birthDate: data.birth_date || '',
     regionId: idOf(data.region),
     districtId: idOf(data.district),
@@ -54,13 +58,14 @@ export function profileToForm(data) {
 }
 
 // Forma qiymatlari → PATCH /customers/me tanasi.
+// MyID qulflagan ism-familiya va tug'ilgan sana umuman yuborilmaydi (server o'zgarishni `identity_fields_locked` bilan rad etadi).
 export function formToPayload(v) {
   return {
-    first_name: v.firstName.trim(),
-    last_name: v.lastName.trim(),
+    ...(v.namesLocked
+      ? {}
+      : { first_name: v.firstName.trim(), last_name: v.lastName.trim(), birth_date: v.birthDate }),
     email: v.email.trim(),
     gender_id: v.genderId,
-    birth_date: v.birthDate,
     region_id: v.regionId,
     district_id: v.districtId,
     address: v.address.trim(),

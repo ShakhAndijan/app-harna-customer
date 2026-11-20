@@ -25,6 +25,7 @@ function RateForm({ order, onClose, onRated }) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
   const [photos, setPhotos] = useState([]); // [{ uri, mimeType }]
+  const [photosPublic, setPhotosPublic] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const pickPhotos = async () => {
@@ -54,7 +55,7 @@ function RateForm({ order, onClose, onRated }) {
     setBusy(true);
     try {
       const photoKeys = await Promise.all(photos.map((p) => uploadReviewPhoto(p.uri, p.mimeType)));
-      await createOrderReview(order.id, { rating, comment, photoKeys });
+      await createOrderReview(order.id, { rating, comment, photoKeys, photosPublic });
       onRated(rating);
     } catch (e) {
       appAlert(
@@ -136,6 +137,32 @@ function RateForm({ order, onClose, onRated }) {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Buyurtma suratlari ustaning ochiq profilida ko'rinsinmi: sharh tahrirlanmaydi, shuning uchun faqat shu yerda. */}
+      <TouchableOpacity
+        style={s.consent}
+        activeOpacity={0.8}
+        onPress={() => setPhotosPublic((v) => !v)}
+        disabled={busy}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: photosPublic }}
+      >
+        <View
+          style={[
+            s.box,
+            {
+              borderColor: photosPublic ? t.orange : t.border,
+              backgroundColor: photosPublic ? t.orange : t.card,
+            },
+          ]}
+        >
+          {photosPublic && <MaterialCommunityIcons name="check" size={15} color="#fff" />}
+        </View>
+        <Text style={[s.consentText, { color: t.text }]}>{tr('reviewConsent.photosPublic')}</Text>
+      </TouchableOpacity>
+      <Text style={[s.consentHint, { color: t.muted }]}>
+        {tr('reviewConsent.photosPublicHint')}
+      </Text>
     </FlowModal>
   );
 }
@@ -177,4 +204,15 @@ const s = StyleSheet.create({
     gap: 2,
   },
   addTxt: { fontSize: 10.5, fontWeight: '600' },
+  consent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  consentText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  consentHint: { fontSize: 12.5, lineHeight: 18, marginTop: -4 },
 });

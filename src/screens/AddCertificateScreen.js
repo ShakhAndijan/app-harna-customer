@@ -22,6 +22,7 @@ import Feather from '@expo/vector-icons/Feather';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
+import { askCamera } from '../utils/permissions';
 import useBottomInset from '../hooks/useBottomInset';
 
 const FIELD_OPTIONS = [
@@ -41,7 +42,13 @@ const formatDate = (d) => (d ? `${pad2(d.day)}.${pad2(d.month)}.${d.year}` : '')
 function PhotoSourceSheet({ visible, onClose, onPickCamera, onPickGallery, t }) {
   const { t: tr } = useLanguage();
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={s.sheetOverlay} />
       </TouchableWithoutFeedback>
@@ -52,7 +59,9 @@ function PhotoSourceSheet({ visible, onClose, onPickCamera, onPickGallery, t }) 
         </View>
 
         <View style={[s.sheetGroup, { backgroundColor: t.card, borderColor: t.border }]}>
-          <Text style={[s.sheetGroupTitle, { color: t.muted }]}>{tr('addCertificate.photoSheetTitle')}</Text>
+          <Text style={[s.sheetGroupTitle, { color: t.muted }]}>
+            {tr('addCertificate.photoSheetTitle')}
+          </Text>
           <View style={[s.sheetDivider, { backgroundColor: t.border }]} />
           <TouchableOpacity style={s.sheetRow} activeOpacity={0.6} onPress={onPickCamera}>
             <Feather name="camera" size={18} color={t.text} style={{ marginRight: 9 }} />
@@ -139,7 +148,13 @@ function DatePickerSheet({ visible, onClose, title, value, onConfirm, onClear, t
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={s.sheetOverlay} />
       </TouchableWithoutFeedback>
@@ -162,7 +177,13 @@ function DatePickerSheet({ visible, onClose, title, value, onConfirm, onClear, t
         <View style={s.dateWheelWrap}>
           <View style={[s.dateHighlight, { backgroundColor: t.rowIconBg }]} pointerEvents="none" />
           <DateColumn values={days} value={day} onChange={setDay} t={t} />
-          <DateColumn values={months} value={month} onChange={changeMonth} format={(m) => monthNames[m - 1]} t={t} />
+          <DateColumn
+            values={months}
+            value={month}
+            onChange={changeMonth}
+            format={(m) => monthNames[m - 1]}
+            t={t}
+          />
           <DateColumn values={years} value={year} onChange={changeYear} t={t} />
         </View>
 
@@ -176,7 +197,9 @@ function DatePickerSheet({ visible, onClose, title, value, onConfirm, onClear, t
           </TouchableOpacity>
           {onClear && (
             <TouchableOpacity style={s.clearBtn} activeOpacity={0.7} onPress={onClear}>
-              <Text style={[s.clearBtnText, { color: t.muted }]}>{tr('addCertificate.leaveIndefinite')}</Text>
+              <Text style={[s.clearBtnText, { color: t.muted }]}>
+                {tr('addCertificate.leaveIndefinite')}
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -273,8 +296,10 @@ export default function AddCertificateScreen({ onBack, onSave }) {
 
   const pickFromCamera = async () => {
     setShowPhotoSheet(false);
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
+    // Tizim so'rovidan oldin sabab aytiladi; "Keyinroq" (null) — jim qaytamiz.
+    const granted = await askCamera(tr, 'certificate', { again: true });
+    if (granted === null) return;
+    if (!granted) {
       appAlert(tr('avatarPicker.permissionTitle'), tr('addCertificate.cameraPermission'));
       return;
     }
@@ -334,7 +359,10 @@ export default function AddCertificateScreen({ onBack, onSave }) {
         <Text style={[s.headerTitle, { color: t.text }]}>{tr('addCertificate.headerTitle')}</Text>
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[s.scroll, { paddingBottom: 40 + bottomInset }]}
@@ -357,13 +385,19 @@ export default function AddCertificateScreen({ onBack, onSave }) {
               <View style={[s.photoPlaceholderIcon, { backgroundColor: t.orange + '18' }]}>
                 <MaterialCommunityIcons name="certificate-outline" size={26} color={t.orange} />
               </View>
-              <Text style={[s.photoPlaceholderTitle, { color: t.text }]}>{tr('addCertificate.photoSheetTitle')}</Text>
-              <Text style={[s.photoPlaceholderSub, { color: t.muted }]}>{tr('addCertificate.photoPlaceholderSub')}</Text>
+              <Text style={[s.photoPlaceholderTitle, { color: t.text }]}>
+                {tr('addCertificate.photoSheetTitle')}
+              </Text>
+              <Text style={[s.photoPlaceholderSub, { color: t.muted }]}>
+                {tr('addCertificate.photoPlaceholderSub')}
+              </Text>
             </TouchableOpacity>
           )}
 
           <View style={{ marginTop: 20, gap: 8 }}>
-            <Text style={[s.fieldLabel, { color: t.muted }]}>{tr('addCertificate.fieldLabel')}</Text>
+            <Text style={[s.fieldLabel, { color: t.muted }]}>
+              {tr('addCertificate.fieldLabel')}
+            </Text>
             <View style={s.chipsRow}>
               {FIELD_OPTIONS.map((opt) => {
                 const on = selectedField?.name === opt.name;
@@ -374,10 +408,17 @@ export default function AddCertificateScreen({ onBack, onSave }) {
                     activeOpacity={0.8}
                     style={[
                       s.chip,
-                      { backgroundColor: on ? opt.color : t.inputBg, borderColor: on ? opt.color : t.border },
+                      {
+                        backgroundColor: on ? opt.color : t.inputBg,
+                        borderColor: on ? opt.color : t.border,
+                      },
                     ]}
                   >
-                    <MaterialCommunityIcons name={opt.icon} size={14} color={on ? '#fff' : opt.color} />
+                    <MaterialCommunityIcons
+                      name={opt.icon}
+                      size={14}
+                      color={on ? '#fff' : opt.color}
+                    />
                     <Text style={[s.chipText, { color: on ? '#fff' : t.text }]}>
                       {tr(`addCertificate.fields.${opt.key}`)}
                     </Text>
@@ -437,7 +478,11 @@ export default function AddCertificateScreen({ onBack, onSave }) {
             onPress={handleSave}
             disabled={!isReady}
           >
-            {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={s.saveBtnText}>{tr('editProfile.saveBtn')}</Text>}
+            {saving ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={s.saveBtnText}>{tr('editProfile.saveBtn')}</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -502,7 +547,13 @@ const s = StyleSheet.create({
 
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
 
-  photoWrap: { width: '100%', height: 160, borderRadius: 16, overflow: 'hidden', position: 'relative' },
+  photoWrap: {
+    width: '100%',
+    height: 160,
+    borderRadius: 16,
+    overflow: 'hidden',
+    position: 'relative',
+  },
   photoImg: { width: '100%', height: '100%' },
   photoChangeBtn: {
     position: 'absolute',

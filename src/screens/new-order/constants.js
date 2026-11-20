@@ -1,4 +1,6 @@
 export const MAX_PHOTOS = 10;
+// `task_category_ids` ko'pi bilan 10 ta (backend `max_length=10`).
+export const MAX_CATEGORIES = 10;
 
 // Ishchiga talablar variantlari va "boshqa talablar" matni uzunligi (sayt bilan bir xil).
 export const RATING_OPTIONS = [0, 4, 4.5, 4.8];

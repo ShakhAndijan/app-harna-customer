@@ -4,6 +4,14 @@
     "slug": "mobile-app-afish",
     "scheme": ["mobile-app-afish", "harna"],
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d45371fb-bf89-4d60-914e-6ca325c91aa3",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -51,6 +59,26 @@
               "scheme": "https",
               "host": "dev.harna.uz",
               "pathPrefix": "/maqolalar"
+            },
+            {
+              "scheme": "https",
+              "host": "dev.harna.uz",
+              "pathPrefix": "/buyurtma"
+            },
+            {
+              "scheme": "https",
+              "host": "dev.harna.uz",
+              "pathPrefix": "/about"
+            },
+            {
+              "scheme": "https",
+              "host": "dev.harna.uz",
+              "pathPrefix": "/privacy"
+            },
+            {
+              "scheme": "https",
+              "host": "dev.harna.uz",
+              "pathPrefix": "/terms"
             }
           ],
           "category": [

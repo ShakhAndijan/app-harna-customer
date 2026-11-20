@@ -6,6 +6,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { common } from '../styles';
 import MoneyInput from '../components/MoneyInput';
 import PaymentOption from '../components/PaymentOption';
+import PlatformPriceCard from '../components/PlatformPriceCard';
 
 const TYPES = ['fixed', 'hourly'];
 const ICON = { fixed: 'briefcase-check-outline', hourly: 'clock-time-four-outline' };
@@ -22,6 +23,7 @@ export default function PricingSection({
   fixedPrice,
   setFixedPrice,
   priceMissing,
+  quote,
 }) {
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
@@ -42,6 +44,9 @@ export default function PricingSection({
     subtitle: tr(`newOrder.pricing.${type}Hint`),
   });
   const current = option(pricingType);
+
+  // Narxni platforma belgilagan ishlar: narx yozilmaydi, faqat o'qiladigan karta (soatbay ham yo'q).
+  if (quote?.kind === 'priced') return <PlatformPriceCard quote={quote} />;
 
   return (
     <>
@@ -131,6 +136,10 @@ export default function PricingSection({
                 : 'newOrder.pricing.requiredFixed'
             )}
           </Text>
+        )}
+        {/* Narxli va kelishiladigan ish aralash: server rad etadi (draft/qayta chaqirishdan kelishi mumkin). */}
+        {quote?.kind === 'mixed' && (
+          <Text style={[s.required, { color: t.red }]}>{tr('platformPrice.mixed')}</Text>
         )}
       </View>
     </>

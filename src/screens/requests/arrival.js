@@ -2,7 +2,15 @@ import { formatDay } from './utils';
 
 // Usta kelish vaqti oralig'i (saytdagi WindowPicker bilan bir xil mantiq): sana bilan birga
 // "13:00–14:00" ko'rinishida. Sozlamalar serverdan (`/system/order-timing`) keladi.
-export const DEFAULT_TIMING = { minutes: 60, firstHour: 8, lastHour: 20 };
+// `urgentAutoHours` — so'ralgan vaqtgacha shuncha soatdan kam qolsa server buyurtmani o'zi "Shoshilinch"
+// qiladi; `urgentDayEnds` — oyna tanlanmagan kunning "vaqti" (shu soatgacha).
+export const DEFAULT_TIMING = {
+  minutes: 60,
+  firstHour: 8,
+  lastHour: 20,
+  urgentAutoHours: 3,
+  urgentDayEnds: '21:00',
+};
 
 // Toshkent vaqti (UTC+5): oraliq tugash vaqtini hisoblash uchun.
 const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000;
@@ -39,6 +47,8 @@ export function mapTiming(raw) {
       23,
       Math.max(firstHour, DEFAULT_TIMING.lastHour)
     ),
+    urgentAutoHours: int(raw?.urgent_auto_hours, 0, 24 * 31, DEFAULT_TIMING.urgentAutoHours),
+    urgentDayEnds: normalizeTime(raw?.urgent_day_ends) ?? DEFAULT_TIMING.urgentDayEnds,
   };
 }
 
@@ -78,14 +88,45 @@ function slotEndMs(iso, time, minutes) {
 
 /**
  * Tanlash mumkin oraliqlar boshlanish vaqtlari ("08:00"...). Tanlangan kun bugun bo'lsa,
- * allaqachon tugab bo'lganlari chiqarib tashlanadi.
+ * allaqachon tugab bo'lganlari chiqarib tashlanadi. `notBegun` (buyurtma formasining qoidasi):
+ * bugun boshlanib bo'lganlari ham chiqariladi.
  */
-export function windowSlots(timing, iso, now = Date.now()) {
+export function windowSlots(timing, iso, now = Date.now(), { notBegun = false } = {}) {
   const slots = [];
   for (let hour = timing.firstHour; hour <= timing.lastHour; hour++) {
     const time = `${pad(hour)}:00`;
-    if (iso && now >= slotEndMs(iso, time, timing.minutes)) continue;
+    if (iso && now >= slotEndMs(iso, time, notBegun ? 0 : timing.minutes)) continue;
     slots.push(time);
   }
   return slots;
+}
+
+// Hozirgi vaqtga nisbatan hali tanlash mumkin oraliqlar (render ichida `Date.now()` chaqirmaslik uchun shu yerda).
+export const openSlots = (timing, iso, options) => windowSlots(timing, iso, Date.now(), options);
+
+// Toshkentdagi bugungi kun, "YYYY-MM-DD": hamma oraliq shu soat bo'yicha.
+export function tashkentToday(now = Date.now()) {
+  return new Date(now + TASHKENT_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+// Tanlangan oraliq shu kunda hali tanlash mumkin bo'lsa o'zi, aks holda null: ko'rsatilgan narsa yuboriladi.
+export function keptWindow(timing, iso, value, options) {
+  return iso && value && windowSlots(timing, iso, Date.now(), options).includes(value)
+    ? value
+    : null;
+}
+
+/**
+ * Server buyurtmani o'zi "Shoshilinch" qiladimi (uning `urgent_now`'i): so'ralgan vaqtgacha
+ * `urgentAutoHours` soatdan kam qolgan bo'lsa. So'ralgan vaqt — oraliq boshi, oraliq yo'q bo'lsa
+ * shu kunning `urgentDayEnds`'i (21:00). Kun so'ralmasa ("Farqi yo'q") hech qachon.
+ */
+export function urgentSoon(timing, iso, window, now = Date.now()) {
+  if (!iso) return false;
+  const [y, mo, d] = iso.slice(0, 10).split('-').map(Number);
+  const clock = normalizeTime(window) ?? normalizeTime(timing.urgentDayEnds);
+  if (!clock || ![y, mo, d].every(Number.isFinite)) return false;
+  const [h, m] = clock.split(':').map(Number);
+  const at = Date.UTC(y, mo - 1, d, h, m) - TASHKENT_OFFSET_MS;
+  return at - now < timing.urgentAutoHours * 60 * 60 * 1000;
 }

@@ -4,7 +4,7 @@ import { COLORS } from '../../../constants/colors';
 import { useLanguage } from '../../../context/LanguageContext';
 
 // Sahifa oxiridagi "Kirish" chaqirig'i.
-export default function ClosingCta({ onPress, onOrder }) {
+export default function ClosingCta({ onPress, onOrder, onHelp }) {
   const { t } = useLanguage();
 
   return (
@@ -92,6 +92,13 @@ export default function ClosingCta({ onPress, onOrder }) {
           <Feather name="edit-3" size={18} color={COLORS.orange} />
           <Text style={{ color: COLORS.orange, fontWeight: '700', fontSize: 15 }}>
             {t('app.closingCta.order')}
+          </Text>
+        </TouchableOpacity>
+      )}
+      {!!onHelp && (
+        <TouchableOpacity onPress={onHelp} activeOpacity={0.7} style={{ marginTop: 16 }}>
+          <Text style={{ color: COLORS.gray, fontWeight: '700', fontSize: 13.5 }}>
+            {t('guestSupport.helpLink')}
           </Text>
         </TouchableOpacity>
       )}

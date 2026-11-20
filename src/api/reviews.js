@@ -26,13 +26,15 @@ export async function uploadReviewPhoto(uri, mimeType) {
  * Yakunlangan buyurtma bo'yicha ustaga baho: 1–5 yulduz, izoh (≤2000) va rasmlar (≤5).
  * Bir buyurtmaga bir marta beriladi.
  */
-export const createOrderReview = (orderId, { rating, comment, photoKeys }) =>
+export const createOrderReview = (orderId, { rating, comment, photoKeys, photosPublic = false }) =>
   request(ENDPOINTS.ORDER_REVIEW(orderId), {
     method: 'POST',
     body: {
       rating,
       comment: comment?.trim() || null,
       ...(photoKeys?.length ? { photo_temp_keys: photoKeys } : {}),
+      // Buyurtma suratlari ustaning ochiq profilida ko'rinsinmi: faqat shu yerda beriladi (sharh tahrirlanmaydi).
+      photos_public: photosPublic === true,
     },
     fallbackMessage: "Baho yuborib bo'lmadi",
   });

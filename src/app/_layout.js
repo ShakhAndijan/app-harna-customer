@@ -25,6 +25,8 @@ import { markStartup } from '../utils/startup';
 import usePushNotifications from '../hooks/usePushNotifications';
 import usePreferencesSync from '../hooks/usePreferencesSync';
 import ConsentGate from '../components/ConsentGate';
+import PhonePrompt from '../components/PhonePrompt';
+import ReleaseBanner from '../components/ReleaseBanner';
 import RealtimeSync from '../realtime/RealtimeSync';
 
 // Native splash birinchi ekran tayyor bo'lguncha turadi: bo'sh ekran va alohida yuklagich bosqichi yo'q.
@@ -104,7 +106,6 @@ function RootNavigator() {
               <Stack.Screen name="order-worker" />
               <Stack.Screen name="addresses" />
               <Stack.Screen name="notifications" />
-              <Stack.Screen name="help" />
               <Stack.Screen name="help-menu" />
               <Stack.Screen name="security" />
               <Stack.Screen name="settings" />
@@ -117,7 +118,6 @@ function RootNavigator() {
               <Stack.Screen name="favorites" />
               <Stack.Screen name="request/[id]" />
               <Stack.Screen name="chat" />
-              <Stack.Screen name="support" />
               <Stack.Screen name="support-chat" />
               <Stack.Screen name="delete-account" />
               <Stack.Screen name="complaint" />
@@ -141,6 +141,9 @@ function RootNavigator() {
             <Stack.Screen name="reels" options={{ animation: 'fade' }} />
             <Stack.Screen name="workers" />
             <Stack.Screen name="document" />
+            {/* Yordam markazi va yordam shakli mehmonga ham ochiq (shakl CAPTCHA bilan). */}
+            <Stack.Screen name="help" />
+            <Stack.Screen name="support" />
             <Stack.Screen name="articles" />
             <Stack.Screen name="article/[slug]" />
           </Stack>
@@ -149,6 +152,10 @@ function RootNavigator() {
           <RealtimeSync enabled={signedIn} />
           <PreferencesSync />
           <ConsentGate />
+          {/* Telefoni tasdiqlanmagan hisobdan kirgan mijozdan raqamni tasdiqlash so'raladi (bir marta). */}
+          <PhonePrompt />
+          {/* Ilova ochiq turganda yangi versiya (EAS Update) chiqsa "Hozir yangilash" taklif qilinadi. */}
+          <ReleaseBanner />
         </View>
       </NavigationThemeProvider>
     </UserProvider>

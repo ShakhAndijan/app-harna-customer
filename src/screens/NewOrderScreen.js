@@ -14,13 +14,17 @@ import { useAuth } from '../context/AuthContext';
 import LoginScreen from './LoginScreen';
 import { useAllCategoriesQuery, useCategoryTreeQuery } from '../queries/categories';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createOrder, getOrderAgain, getOrderBrief } from '../api/orders';
+import { createOrder, getDepositRequirement, getOrderAgain, getOrderBrief } from '../api/orders';
+import { depositNewlyRequired } from './deposit/utils';
 import { getCustomerMe } from '../api/user';
 import { primaryFromMe } from './addresses/hooks/useAddresses';
-import { stripCountryCode } from './new-order/utils';
+import { stripCountryCode, toISODate } from './new-order/utils';
 import buildOrderPayload from './new-order/buildOrderPayload';
-import { MAX_PHOTOS } from './new-order/constants';
+import { catalogMoved, fitsPicks, platformQuote } from './new-order/platformPrice';
+import { MAX_CATEGORIES, MAX_PHOTOS } from './new-order/constants';
 import CategoryPickerModal from './new-order/components/CategoryPickerModal';
+import CategorySuggestChip from './new-order/components/CategorySuggestChip';
+import useCategorySuggestion from './new-order/hooks/useCategorySuggestion';
 import AddressModal from './new-order/components/AddressModal';
 import ReviewModal from './new-order/components/ReviewModal';
 import PhotoPreviewModal from './new-order/components/PhotoPreviewModal';
@@ -45,6 +49,8 @@ import useOrderDraft from './new-order/hooks/useOrderDraft';
 import useTabBarSpace from '../navigation/useTabBarSpace';
 import { getErrorMessage } from '../utils/errors';
 import { trackEvent } from '../utils/analytics';
+import { useOrderTiming } from '../queries/orderTiming';
+import { keptWindow, tashkentToday } from './requests/arrival';
 
 // `onBack` berilsa (masalan usta profilidan ochilganda) tepada orqaga tugmasi chiqadi va
 // pastki menyu uchun joy qoldirilmaydi.
@@ -85,6 +91,9 @@ export default function NewOrderScreen({
   const [gpsLng, setGpsLng] = useState(null);
   const [when, setWhen] = useState('today');
   const [whenDate, setWhenDate] = useState(null);
+  // «Qaysi vaqtda kelsin?»: tanlangan oraliq boshi ("10:00"); haqiqatda yuboriladigani `whenWindow` (pastda).
+  const [windowPick, setWindowPick] = useState(null);
+  const timing = useOrderTiming();
   const [previewIndex, setPreviewIndex] = useState(null);
   const [workerCount, setWorkerCount] = useState(1);
   const [requirePhoto, setRequirePhoto] = useState(false);
@@ -104,6 +113,8 @@ export default function NewOrderScreen({
   const [orgSiteId, setOrgSiteId] = useState(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Omonat: hozir berilgan buyurtma omonat kutadimi (forma ochilganda o'qiladi, yuborishdan oldin yana).
+  const [depositNeed, setDepositNeed] = useState(null);
   // Bir xil so'rov qayta yuborilsa (masalan tarmoq xatosidan keyin "Tasdiqlash"
   // yana bosilsa) backend buni dublikat sifatida qaytarishi uchun shu bir xil
   // kalit qayta ishlatiladi — forma qayta ochilganda yangisi generatsiya qilinadi.
@@ -193,6 +204,26 @@ export default function NewOrderScreen({
   };
 
   const selectedCategories = categories.filter((c) => categoryIds.includes(c.id));
+  // «O'zgarmas narx»: narxni platforma belgilagan yo'nalishlar. Narx buyurtma viloyatiga qarab hisoblanadi,
+  // narxli va kelishiladigan ish bir buyurtmaga sig'maydi (tanlagich xiralashtiradi, forma ham tekshiradi).
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const quote = platformQuote(categoryIds, categoryById, regionId);
+
+  // «Taklif»: tavsifga qarab server yo'nalish tavsiya qiladi. Aniq ustaga buyurtmada (yo'nalish ustaniki) va
+  // yo'nalishlar yuklanmaguncha so'ralmaydi. Quyi yo'nalishi bor yo'nalish tanlanmaydi, tanlagichda ochiladi.
+  const suggestedIds = useCategorySuggestion(description, !orderWorker && categoryTree.length > 0);
+  const suggestedId = suggestedIds?.find((id) => categoryById.has(id)) ?? null;
+  const suggested = suggestedId != null ? categoryById.get(suggestedId) : null;
+  const suggestedOpens = categoryTree.some((c) => c.id === suggestedId && c.children?.length > 0);
+  const [pickerFocus, setPickerFocus] = useState({ key: 0, parentId: null });
+  const takeSuggestion = () => {
+    if (suggestedOpens) {
+      setPickerFocus((p) => ({ key: p.key + 1, parentId: suggestedId }));
+      setCategoryPickerOpen(true);
+    } else if (categoryIds.length < MAX_CATEGORIES) {
+      setCategoryIds((prev) => [...prev, suggestedId]);
+    }
+  };
   const selectedRegion = regions.find((r) => r.id === regionId);
   const selectedDistrict = districts.find((d) => d.id === districtId);
   const hasAddress = !!(districtId || regionId || street.trim() || gpsLat);
@@ -233,7 +264,16 @@ export default function NewOrderScreen({
   // (sana tanlangan bo'lsa — sana ham), manzil, telefon.
   const addressReady = !!districtId || (gpsLat != null && gpsLng != null);
   const whenReady = !!when && (when !== 'date' || !!whenDate);
-  const priceReady = pricingType === 'hourly' ? !!hourlyRate.trim() : !!fixedPrice.trim();
+  // Oyna faqat aniq kun bilan so'raladi ("Bugun" yoki tanlangan sana), shoshilinch va "farqi yo'q"da yo'q.
+  // Tanlangan oraliq shu kunda endi tanlab bo'lmaydigan bo'lib qolsa (vaqt o'tdi, kun o'zgardi) yuborilmaydi:
+  // ko'rsatilgan narsa yuboriladi.
+  const windowDay =
+    when === 'today' ? tashkentToday() : when === 'date' && whenDate ? toISODate(whenDate) : null;
+  const whenWindow = keptWindow(timing, windowDay, windowPick, { notBegun: true });
+  // Narxli ishda narx yozilmaydi (platforma belgilagan), shuning uchun u "to'ldirilgan" hisoblanadi.
+  const priceReady =
+    quote.kind === 'priced' ||
+    (pricingType === 'hourly' ? !!hourlyRate.trim() : !!fixedPrice.trim());
   const missing = [
     description.trim().length === 0 && 'newOrder.descriptionLabel',
     !priceReady && 'newOrder.pricingLabel',
@@ -241,7 +281,7 @@ export default function NewOrderScreen({
     !addressReady && 'newOrder.locationLabel',
     phone.trim().length === 0 && 'newOrder.phoneLabel',
   ].filter(Boolean);
-  const ready = missing.length === 0;
+  const ready = missing.length === 0 && quote.kind !== 'mixed';
 
   // Tahlil: forma ochildi; to'ldirilgan majburiy maydonlar soniga qarab 1–5-qadam (har biri bir marta);
   // 6-qadam — tasdiqlash oynasi.
@@ -287,6 +327,7 @@ export default function NewOrderScreen({
     floor,
     when,
     whenDate,
+    whenWindow,
     workerCount,
     requirePhoto,
     requireVerified,
@@ -301,6 +342,7 @@ export default function NewOrderScreen({
     orgSiteId,
     againFrom,
     keptPhotos,
+    quote,
   };
 
   // Qoralama: konkret ustaga buyurtmada ishlatilmaydi (u ustaga xos, oddiy qoralamani buzmasligi kerak).
@@ -321,6 +363,7 @@ export default function NewOrderScreen({
       districtId,
       when,
       whenDate: whenDate ? whenDate.toISOString() : null,
+      whenWindow: windowPick,
       workerCount,
       requirePhoto,
       requireVerified,
@@ -356,6 +399,8 @@ export default function NewOrderScreen({
       else if (savedDate && !Number.isNaN(savedDate.getTime()) && savedDate >= today) {
         setWhen('date');
         setWhenDate(savedDate);
+        // Saqlangan oraliq endi yaroqsiz bo'lsa, `keptWindow` uni tashlab yuboradi.
+        setWindowPick(/^\d{2}:\d{2}$/.test(str(d.whenWindow)) ? d.whenWindow : null);
       }
       setWorkerCount(Math.max(1, num(d.workerCount, 1)));
       setRequirePhoto(!!d.requirePhoto);
@@ -417,15 +462,25 @@ export default function NewOrderScreen({
   const handleGuestLogin = async (actorType) => {
     setAuthOpen(false);
     signIn(actorType);
-    await submitOrder();
+    await submitOrder({ afterGate: true });
   };
 
-  const submitOrder = async () => {
+  const submitOrder = async ({ afterGate = false } = {}) => {
     if (submitting) return;
     const payload = buildOrderPayload(form);
 
     setSubmitting(true);
     try {
+      // Omonat: qoida forma ochiq turganda o'zgargan bo'lishi mumkin (mehmon esa kirgach o'qiladi). Aytilmagan
+      // omonat topilsa buyurtma yuborilmaydi: eslatma ko'rsatiladi, keyingi bosish yuboradi.
+      const said = !afterGate && depositNeed?.required === true;
+      const fresh = await getDepositRequirement().catch(() => null);
+      if (fresh) setDepositNeed(fresh);
+      if (depositNewlyRequired(said, fresh)) {
+        setReviewOpen(true);
+        return;
+      }
+
       if (photos.length > 0) {
         try {
           payload.photo_temp_keys = await uploadAll();
@@ -448,6 +503,10 @@ export default function NewOrderScreen({
       queryClient.invalidateQueries({ queryKey: ['customer', 'me'] });
       setReviewOpen(false);
       draft.clearDraft();
+      // Narx qotirilgan buyurtma: takliflar shu narxda keladi, mijoz faqat usta va kunni tanlaydi.
+      if (created?.platform_price != null) {
+        appAlert(tr('platformPrice.label'), tr('platformPrice.doneBody'));
+      }
       onOrderCreated?.({
         id: created?.id ?? null,
         category: selectedCategories.map((c) => c.name).join(', '),
@@ -455,6 +514,12 @@ export default function NewOrderScreen({
         raw: created,
       });
     } catch (err) {
+      // Katalog forma ochiq turganda o'zgardi (narx o'zgardi yoki ish narxli/kelishiladigan bo'ldi, 409):
+      // yo'nalishlar qayta o'qiladi va tasdiqlash oynasi yopiladi — mijoz yangi summani ko'rib qayta yuboradi.
+      if (catalogMoved(err)) {
+        queryClient.invalidateQueries({ queryKey: ['categories'] });
+        setReviewOpen(false);
+      }
       appAlert(tr('newOrder.submitErrorTitle'), getErrorMessage(err, tr, 'common.error'));
     } finally {
       setSubmitting(false);
@@ -526,6 +591,14 @@ export default function NewOrderScreen({
         <StepHeader no={1} title={tr('newOrder.step1Title')} />
         <View onLayout={trackSection('newOrder.descriptionLabel')}>
           <DescriptionSection description={description} setDescription={setDescription} />
+          {suggested && !categoryIds.includes(suggested.id) && (
+            <CategorySuggestChip
+              name={suggested.name}
+              blocked={!suggestedOpens && !fitsPicks(suggested.id, categoryIds, categoryById)}
+              full={!suggestedOpens && categoryIds.length >= MAX_CATEGORIES}
+              onPress={takeSuggestion}
+            />
+          )}
         </View>
         <View onLayout={trackSection('newOrder.pricingLabel')}>
           <PricingSection
@@ -538,6 +611,7 @@ export default function NewOrderScreen({
             fixedPrice={fixedPrice}
             setFixedPrice={setFixedPrice}
             priceMissing={!priceReady}
+            quote={quote}
           />
         </View>
         <View onLayout={trackSection('newOrder.whenLabel')}>
@@ -547,6 +621,10 @@ export default function NewOrderScreen({
             whenDate={whenDate}
             setWhenDate={setWhenDate}
             workerId={orderWorker?.id}
+            windowDay={windowDay}
+            whenWindow={whenWindow}
+            setWhenWindow={setWindowPick}
+            timing={timing}
           />
         </View>
         <PhotosSection
@@ -604,11 +682,14 @@ export default function NewOrderScreen({
       </KeyboardAwareScrollView>
 
       <CategoryPickerModal
+        key={pickerFocus.key}
+        initialParentId={pickerFocus.parentId}
         visible={categoryPickerOpen}
         onClose={() => setCategoryPickerOpen(false)}
         categories={categoryTree}
         selectedIds={categoryIds}
         onToggle={toggleCategory}
+        fits={(id) => fitsPicks(id, categoryIds, categoryById)}
         t={t}
         tr={tr}
       />
@@ -643,6 +724,7 @@ export default function NewOrderScreen({
         onClose={() => setReviewOpen(false)}
         onConfirm={handleSubmit}
         submitting={submitting}
+        depositNeed={depositNeed}
         t={t}
         tr={tr}
         selectedCategories={selectedCategories}

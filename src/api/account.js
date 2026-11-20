@@ -29,25 +29,48 @@ export async function getCustomerReviews(customerId, limit = 20) {
 // ─── Shaxsni tasdiqlash ──────────────────────────────────────────
 
 /**
+ * Shaxsni tasdiqlash holati.
  * @returns {Promise<{ submission_status: 'not_submitted'|'pending'|'approved'|'rejected',
- *   rejected_reason?: string|null, available_providers?: string[] }>}
+ *   method?: 'myid'|'operator'|null, verified_at?: string|null, valid_until?: string|null,
+ *   validity_years?: number, expired?: boolean, revoked_reason?: string|null,
+ *   rejected_reason?: string|null, myid_available?: boolean, can_start?: boolean,
+ *   names_locked?: boolean, app_open_mode?: 'auth_session'|'browser'|'website'|null }>}
  */
 export const getIdentityStatus = () =>
   request(ENDPOINTS.VERIFY_STATUS, { fallbackMessage: 'Tasdiqlash holati yuklanmadi' });
 
 /**
- * MyID orqali tasdiqlashni boshlaydi (qo'lda hujjat yuborish yopilgan: 410 `manual_verification_closed`).
- * `return_to: 'app'` bo'lsa MyID tugagach server `harna://cabinet/verify?status=verified` (yoki
- * `?status=rejected|error&reason=...`) ga qaytaradi. Javob: `{ redirect_url, verification_id }`.
- * Xato kodlari: 409 `identity_already_verified` / `verification_already_in_progress`,
+ * MyID WebSDK tekshiruvini ochadi. Body: `{ birth_date: 'YYYY-MM-DD', pinfl | pass_data, return_to: 'app', app_id }`.
+ * Javob: `{ open_url, session_id, nonce, expires_in, ... }` — `open_url` brauzerda ochiladi.
+ * Xatolar: 409 `identity_already_verified` / `verification_already_in_progress`,
  * 503 `verification_provider_unavailable`, 422 `invalid_request_data`.
- * @returns {Promise<{ redirect_url: string }>}
  */
-export const startIdentityProvider = (provider = 'myid') =>
-  request(ENDPOINTS.VERIFY_START, {
+export const startMyIdCheck = (body) =>
+  request(ENDPOINTS.VERIFY_MYID_START, {
     method: 'POST',
-    body: { provider, return_to: 'app' },
+    body,
     fallbackMessage: 'Tasdiqlashni boshlab bo‘lmadi',
+  });
+
+/**
+ * «Tasdiqlashni yakunlash» tugmasi: MyID javobini hisobga yozadi. Server MyID javobini ~1 daqiqagacha
+ * kutadi, shuning uchun uzun timeout. 409 `verification_in_progress` — boshqa bosish yakunlayapti.
+ * Javob: `{ status, identity: { first_name, last_name, middle_name, birth_date } }`.
+ */
+export const completeMyIdCheck = ({ session_id, auth_code, nonce }) =>
+  request(ENDPOINTS.VERIFY_MYID_COMPLETE, {
+    method: 'POST',
+    body: { session_id, auth_code, nonce },
+    timeout: 70000,
+    fallbackMessage: 'Tasdiqlashni yakunlab bo‘lmadi',
+  });
+
+/** MyID kodsiz qaytganda urinishni yopadi (server holatda "kutyapti" demasligi uchun). */
+export const abandonMyIdCheck = ({ session_id, nonce }) =>
+  request(ENDPOINTS.VERIFY_MYID_ABANDON, {
+    method: 'POST',
+    body: { session_id, nonce },
+    fallbackMessage: 'Tasdiqlashni yopib bo‘lmadi',
   });
 
 // ─── Email tasdiqlash ────────────────────────────────────────────

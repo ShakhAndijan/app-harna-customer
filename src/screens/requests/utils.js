@@ -4,10 +4,12 @@ import { toISODate } from '../new-order/utils';
 export const toMs = (value) => (typeof value === 'number' ? value : new Date(value).getTime());
 
 // Buyurtmaning ko'rinish holati (backend holati va kelishuv bosqichidan):
-// pending | returned | negotiating | offer (usta narx aytgan, javobingiz kutilyapti) | active |
+// depositWait (omonat kutilmoqda) | pending | returned | negotiating | offer (usta narx aytgan, javobingiz kutilyapti) | active |
 // workDone (usta "ish bajarildi" degan, tasdiqingiz kutilyapti) | done | cancelled
 export function orderState(order) {
   switch (order.rawStatus) {
+    case 'awaiting_deposit':
+      return 'depositWait';
     case 'pending':
       return order.returnedAt ? 'returned' : 'pending';
     case 'accepted':
@@ -27,7 +29,8 @@ export function orderState(order) {
 // Muddat ("deadline") o'tib ketganmi (bo'sh bo'lsa — yo'q).
 export const isExpired = (value) => value != null && toMs(value) <= Date.now();
 
-export const isOpenOrder = (order) => ['pending', 'accepted', 'active'].includes(order.rawStatus);
+export const isOpenOrder = (order) =>
+  ['awaiting_deposit', 'pending', 'accepted', 'active'].includes(order.rawStatus);
 
 export const formatPrice = (tr, value) =>
   `${formatNumber(Math.round(value))} ${tr('common.currencySom')}`;
@@ -38,6 +41,15 @@ export function describeOrder(order, tr) {
   const name = order.master ?? '';
 
   switch (state) {
+    case 'depositWait':
+      return {
+        state,
+        tone: 'gold',
+        icon: 'wallet-outline',
+        title: tr('deposit.statusLabel'),
+        sub: tr('deposit.statusSubtext'),
+        short: tr('deposit.statusLabel'),
+      };
     case 'offer':
       return {
         state,

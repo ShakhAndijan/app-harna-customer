@@ -3,11 +3,43 @@
 import { ORDER_FLOW } from './orderFlowTexts';
 import { CHAT_SYSTEM } from './chatSystemTexts';
 import { ORDER_SAFETY } from './orderSafetyTexts';
+import { MYID_TEXTS } from './myidTexts';
+import { DEPOSIT_TEXTS } from './depositTexts';
+import { NOTIF_TEXTS } from './notifTexts';
+import { ARRIVAL_PIN_TEXTS } from './arrivalPinTexts';
+import { WORK_PHOTO_TEXTS } from './workPhotoTexts';
+import { ARRIVAL_WINDOW_TEXTS } from './arrivalWindowTexts';
+import { CHAT_TEXTS } from './chatTexts';
+import { TELEGRAM_LOGIN_TEXTS } from './telegramLoginTexts';
+import { PLATFORM_PRICE_TEXTS } from './platformPriceTexts';
+import { CATEGORY_SUGGEST_TEXTS } from './categorySuggestTexts';
+import { ORDER_EXTRA_TEXTS } from './orderExtraTexts';
+import { WORKER_STATS_TEXTS } from './workerStatsTexts';
+import { RELEASE_TEXTS } from './releaseTexts';
+import { GUEST_SUPPORT_TEXTS } from './guestSupportTexts';
+import { SITE_LINKS_TEXTS } from './siteLinksTexts';
+import { PERMISSION_TEXTS } from './permissionTexts';
 
 export const ru = {
   orderFlow: ORDER_FLOW.ru,
   chatSystem: CHAT_SYSTEM.ru,
   ...ORDER_SAFETY.ru,
+  ...MYID_TEXTS.ru,
+  ...DEPOSIT_TEXTS.ru,
+  ...NOTIF_TEXTS.ru,
+  ...ARRIVAL_PIN_TEXTS.ru,
+  ...WORK_PHOTO_TEXTS.ru,
+  ...ARRIVAL_WINDOW_TEXTS.ru,
+  ...CHAT_TEXTS.ru,
+  ...TELEGRAM_LOGIN_TEXTS.ru,
+  ...PLATFORM_PRICE_TEXTS.ru,
+  ...CATEGORY_SUGGEST_TEXTS.ru,
+  ...ORDER_EXTRA_TEXTS.ru,
+  ...WORKER_STATS_TEXTS.ru,
+  ...RELEASE_TEXTS.ru,
+  ...GUEST_SUPPORT_TEXTS.ru,
+  ...SITE_LINKS_TEXTS.ru,
+  ...PERMISSION_TEXTS.ru,
   common: {
     ok: 'ОК',
     close: 'Закрыть',
@@ -1190,6 +1222,7 @@ export const ru = {
     openListing: 'Открыть объявление',
     openAgain: 'Заказать снова',
     openVerify: 'Открыть подтверждение',
+    openComplaints: 'Открыть мои жалобы',
     openAnswer: 'Посмотреть ответ',
     close: 'Закрыть',
     tabSettings: 'Настройки',

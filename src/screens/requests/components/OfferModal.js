@@ -28,7 +28,10 @@ function OfferForm({ order, busy, onClose, onSubmit }) {
     return first ? first.slice(0, 10) : null;
   });
 
-  const amount = parsePrice(price);
+  // Narxni platforma belgilagan buyurtmada narx kelishilmaydi: faqat kun (va vaqt oralig'i) taklif qilinadi,
+  // narx yuborilmaydi (boshqa summa 409 `platform_price_locked`).
+  const priced = order?.platformPrice != null;
+  const amount = priced ? null : parsePrice(price);
   const timing = useOrderTiming();
   // Tanlangan kun o'zgarsa, eski oraliq yaroqsiz bo'lib qolishi mumkin (masalan bugun o'tib ketgan) —
   // shunda "Farqi yo'q" ga qaytadi.
@@ -38,22 +41,26 @@ function OfferForm({ order, busy, onClose, onSubmit }) {
   return (
     <FlowModal
       visible
-      title={tr('orderFlow.stage.offerTitle')}
-      hint={tr('orderFlow.stage.offerHint')}
+      title={priced ? tr('platformPrice.proposeDay') : tr('orderFlow.stage.offerTitle')}
+      hint={priced ? tr('platformPrice.offerNote') : tr('orderFlow.stage.offerHint')}
       confirmLabel={tr('orderFlow.stage.send')}
-      disabled={!amount || !day}
+      disabled={(!priced && !amount) || !day}
       busy={busy}
       onClose={onClose}
       onSubmit={() => onSubmit(amount, day, windowValue)}
     >
-      <Text style={[s.label, { color: t.text }]}>{tr('orderFlow.talk.priceLabel')}</Text>
-      <MoneyInput
-        value={price}
-        onChangeText={setPrice}
-        placeholder={tr('requests.pricePlaceholder', { currency: tr('common.currencySom') })}
-        suffix={tr('common.currencySom')}
-        t={t}
-      />
+      {!priced && (
+        <>
+          <Text style={[s.label, { color: t.text }]}>{tr('orderFlow.talk.priceLabel')}</Text>
+          <MoneyInput
+            value={price}
+            onChangeText={setPrice}
+            placeholder={tr('requests.pricePlaceholder', { currency: tr('common.currencySom') })}
+            suffix={tr('common.currencySom')}
+            t={t}
+          />
+        </>
+      )}
       <Text style={[s.label, { color: t.text }]}>{tr('orderFlow.order.offerDay')}</Text>
       <DayField value={day} onChange={setDay} />
       <Text style={[s.note, { color: t.muted }]}>{tr('orderFlow.order.offerDayHint')}</Text>

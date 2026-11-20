@@ -12,6 +12,8 @@ import {
   getFavoritesPage,
   favoriteWorker,
   unfavoriteWorker,
+  likeWorker,
+  unlikeWorker,
 } from '../../../api/workers';
 
 import { trackEvent } from '../../../utils/analytics';
@@ -106,8 +108,35 @@ export default function useUstaDetail(usta) {
       });
   };
 
+  // Ochiq "yoqtirish" (sevimlilardan alohida): profil `liked_by_me` va `likes_count` ni beradi.
+  // Bosilganda son darhol o'zgaradi, server javobi bilan to'g'rilanadi, xato bo'lsa qaytariladi.
+  const [thumbOverride, setThumbOverride] = useState(null);
+  const [thumbBusy, setThumbBusy] = useState(false);
+  const thumb = thumbOverride ?? {
+    count: detail?.likesCount ?? 0,
+    liked: detail?.likedByMe ?? false,
+  };
+
+  const toggleThumb = () => {
+    const id = workerId ?? detail?.id;
+    if (!id || thumbBusy) return;
+    const before = thumb;
+    const want = !before.liked;
+    setThumbOverride({ count: Math.max(0, before.count + (want ? 1 : -1)), liked: want });
+    setThumbBusy(true);
+    (want ? likeWorker(id) : unlikeWorker(id))
+      .then((res) => {
+        setThumbOverride({ count: res.likesCount, liked: res.liked });
+        queryClient.invalidateQueries({ queryKey: workerKey(id) });
+      })
+      .catch(() => setThumbOverride(before))
+      .finally(() => setThumbBusy(false));
+  };
+
   return {
     detail,
+    thumb,
+    toggleThumb,
     loadingDetail: detailQuery.isLoading,
     certificates: certificatesQuery.data ?? [],
     loadingCertificates: certificatesQuery.isFetching,

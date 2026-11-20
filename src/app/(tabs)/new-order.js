@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useNavigation, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import NewOrderScreen from '../../screens/NewOrderScreen';
-import { decodeParam } from '../../navigation/params';
+import { afterOrderCreatedRoute, decodeParam } from '../../navigation/params';
 
 // Tabdan chiqilganda forma qayta ochiladi; kiritilgan ma'lumotlar qoralamadan tiklanadi (NewOrderScreen); `worker` — ma'lum ustaga
 // buyurtma berilganda uzatiladigan usta.
@@ -39,7 +39,7 @@ export default function NewOrderRoute() {
       // Tiklangan qoralama ustidagi "Yangidan boshlash": forma bo'sh holda qayta ochiladi.
       onRestartDraft={() => setFormKey((k) => k + 1)}
       // Buyurtma berilgach bosh sahifaga qaytiladi — u yerda "Faol buyurtmalar" ro'yxatida ko'rinadi.
-      onOrderCreated={() => router.navigate('/home')}
+      onOrderCreated={(created) => router.navigate(afterOrderCreatedRoute(created))}
     />
   );
 }

@@ -10,6 +10,8 @@ import { common } from '../styles';
 import OptionSheet from '../components/OptionSheet';
 import ToggleSwitch from '../components/ToggleSwitch';
 import WorkerDays, { useWorkerDays } from '../components/WorkerDays';
+import WindowField from '../../requests/components/WindowField';
+import { openSlots, urgentSoon } from '../../requests/arrival';
 
 // Tanlangan variantga mos ikonka: bugun — bugungi kun belgisi, sana — oylik taqvim.
 const WHEN_ICONS = {
@@ -19,7 +21,19 @@ const WHEN_ICONS = {
 
 // "Qachon kerak?": bitta maydon, odatda "Bugun". Bosilganda boshqa variant tanlanadi
 // (sana / erkin), "Shoshilinch" esa shu kartaning ichidagi alohida tugma.
-export default function WhenSection({ when, setWhen, whenDate, setWhenDate, workerId }) {
+// `windowDay` — oyna so'raladigan kun ("Bugun" yoki tanlangan sana; shoshilinchda yo'q), `whenWindow` — tanlangan
+// oraliq boshi ("10:00" yoki null), `timing` — serverdagi vaqt qoidalari.
+export default function WhenSection({
+  when,
+  setWhen,
+  whenDate,
+  setWhenDate,
+  workerId,
+  windowDay,
+  whenWindow,
+  setWhenWindow,
+  timing,
+}) {
   const { theme: t } = useTheme();
   const { t: tr } = useLanguage();
   const [showIosDatePicker, setShowIosDatePicker] = useState(false);
@@ -121,6 +135,29 @@ export default function WhenSection({ when, setWhen, whenDate, setWhenDate, work
         </View>
       </View>
 
+      {/* «Qaysi vaqtda kelsin?»: faqat kun aniq bo'lganda (bugun yoki tanlangan sana); boshlanib bo'lgan
+          oraliqlar chiqarilmaydi. Vaqt yaqin bo'lsa server buyurtmani o'zi shoshilinch qiladi — oldindan aytiladi. */}
+      {!!windowDay && !urgent && (
+        <View style={s.windowBox}>
+          <Text style={[common.label, { color: t.text }]}>{tr('arrivalWindow.askLabel')}</Text>
+          <WindowField
+            slots={openSlots(timing, windowDay, { notBegun: true })}
+            value={whenWindow}
+            minutes={timing.minutes}
+            onChange={setWhenWindow}
+          />
+          {urgentSoon(timing, windowDay, whenWindow) && (
+            <View
+              style={[s.soon, { backgroundColor: t.red + '1a', borderColor: t.red + '55' }]}
+              accessibilityRole="text"
+            >
+              <MaterialCommunityIcons name="lightning-bolt" size={17} color={t.red} />
+              <Text style={[s.soonText, { color: t.red }]}>{tr('arrivalWindow.urgentSoon')}</Text>
+            </View>
+          )}
+        </View>
+      )}
+
       <WorkerDays days={days} whenDate={when === 'date' ? whenDate : null} onPick={applyDate} />
 
       <OptionSheet
@@ -158,6 +195,17 @@ const s = StyleSheet.create({
   sub: { fontSize: 12, marginTop: 2, lineHeight: 16 },
   change: { fontSize: 13, fontWeight: '700' },
   divider: { height: 1 },
+  windowBox: { gap: 10, marginTop: 14 },
+  soon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  soonText: { flex: 1, fontSize: 13, lineHeight: 18, fontWeight: '700' },
   urgentRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   urgentTitle: { fontSize: 14, fontWeight: '700' },
 });
